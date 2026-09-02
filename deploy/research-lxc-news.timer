@@ -1,0 +1,10 @@
+[Unit]
+Description=Täglicher News-Digest (Recherche-LXC)
+
+[Timer]
+OnCalendar=*-*-* 07:00:00
+Persistent=true
+Unit=research-lxc@news_digest.service
+
+[Install]
+WantedBy=timers.target

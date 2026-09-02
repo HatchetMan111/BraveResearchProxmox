@@ -1,0 +1,11 @@
+[Unit]
+Description=Recherche-LXC Lauf (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=research
+WorkingDirectory=/opt/research-lxc
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/research-lxc/venv/bin/python -m app.main --module %i --config /opt/research-lxc/config.yaml

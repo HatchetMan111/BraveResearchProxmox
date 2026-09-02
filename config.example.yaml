@@ -1,0 +1,48 @@
+# Kopieren nach config.yaml und Werte anpassen.
+# Sensible Werte (api_key, smtp.password) können stattdessen auch per
+# Umgebungsvariable gesetzt werden: BRAVE_API_KEY, SMTP_PASSWORD
+
+brave:
+  api_key: "DEIN_BRAVE_API_KEY"
+  base_url: "https://api.search.brave.com/res/v1"
+  max_requests_per_month: 950  # Sicherheitspuffer unter dem 1000er-Gratislimit
+
+ollama:
+  base_url: "http://OLLAMA-HOST:11434"  # externe, selbst gehostete Ollama-Instanz
+  model: "llama3.1"
+  timeout_seconds: 180
+
+cache:
+  db_path: "data/cache.db"
+  ttl_hours: 24
+
+budget:
+  db_path: "data/budget.db"
+
+output:
+  reports_dir: "reports"
+  email_to: "info@lichtvalleyapps.de"
+  email_from: "research-lxc@lichtvalleyapps.de"
+  smtp:
+    host: ""       # leer lassen = kein E-Mail-Versand, Report bleibt lokal
+    port: 587
+    user: ""
+    password: ""
+    use_tls: true
+
+modules:
+  competitor_analysis:
+    enabled: true
+    branche: "SmartHome Integration"
+    region: "Main-Tauber-Kreis"
+    queries_extra: []
+
+  news_digest:
+    enabled: true
+    region: "Main-Tauber-Kreis"
+    themen:
+      - "Energie"
+      - "SmartHome"
+      - "Förderprogramme"
+    stil: "sachlich, lokal, freundlich"
+    queries_extra: []
