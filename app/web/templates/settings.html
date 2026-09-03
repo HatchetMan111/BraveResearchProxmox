@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Einstellungen – Recherche-LXC{% endblock %}
+{% block content %}
+
+<h1>Einstellungen</h1>
+{% if saved %}<div class="banner banner-ok">✔ Gespeichert. Gilt sofort für den nächsten Lauf.</div>{% endif %}
+
+<form method="post" action="/settings" class="settings-form">
+
+  <fieldset>
+    <legend>Brave Search</legend>
+    <label>API Key
+      <input type="password" name="brave_api_key" value="{{ cfg.brave.api_key }}" autocomplete="off">
+    </label>
+    <label>Max. Requests pro Monat
+      <input type="number" name="brave_max_requests_per_month" value="{{ cfg.brave.max_requests_per_month }}" min="1" max="2000">
+    </label>
+    <p class="hint">Sicherheitspuffer unter dem Brave-Gratislimit (aktuell ~1000/Monat). Standard: 950.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Ollama (extern, selbst gehostet)</legend>
+    <label>Base-URL
+      <input type="text" name="ollama_base_url" value="{{ cfg.ollama.base_url }}" placeholder="http://192.168.1.10:11434">
+    </label>
+    <label>Modell
+      <input type="text" name="ollama_model" value="{{ cfg.ollama.model }}" placeholder="llama3.1">
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Modul: Konkurrenzanalyse</legend>
+    <label class="checkbox-label">
+      <input type="checkbox" name="competitor_enabled" {% if cfg.modules.competitor_analysis.enabled %}checked{% endif %}>
+      Aktiviert (wöchentlicher Lauf, Mo 06:00)
+    </label>
+    <label>Branche
+      <input type="text" name="competitor_branche" value="{{ cfg.modules.competitor_analysis.branche }}" placeholder="z.B. Metzgerei">
+    </label>
+    <label>Region
+      <input type="text" name="competitor_region" value="{{ cfg.modules.competitor_analysis.region }}" placeholder="z.B. Main-Tauber-Kreis">
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Modul: News-Digest</legend>
+    <label class="checkbox-label">
+      <input type="checkbox" name="news_enabled" {% if cfg.modules.news_digest.enabled %}checked{% endif %}>
+      Aktiviert (täglicher Lauf, 07:00)
+    </label>
+    <label>Region
+      <input type="text" name="news_region" value="{{ cfg.modules.news_digest.region }}" placeholder="z.B. Main-Tauber-Kreis">
+    </label>
+    <label>Themen (kommagetrennt)
+      <input type="text" name="news_themen" value="{{ cfg.modules.news_digest.themen | join(', ') }}" placeholder="Energie, SmartHome, Förderprogramme">
+    </label>
+    <label>Stil
+      <input type="text" name="news_stil" value="{{ cfg.modules.news_digest.stil }}" placeholder="sachlich, lokal, freundlich">
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Report-Versand</legend>
+    <label>Ziel-E-Mail
+      <input type="email" name="email_to" value="{{ cfg.output.email_to }}">
+    </label>
+    <label>Absender-Adresse
+      <input type="email" name="email_from" value="{{ cfg.output.email_from }}">
+    </label>
+    <label>SMTP-Host <span class="hint">(leer = kein E-Mail-Versand, Reports bleiben lokal)</span>
+      <input type="text" name="smtp_host" value="{{ cfg.output.smtp.host }}">
+    </label>
+    <label>SMTP-Port
+      <input type="number" name="smtp_port" value="{{ cfg.output.smtp.port }}">
+    </label>
+    <label>SMTP-User
+      <input type="text" name="smtp_user" value="{{ cfg.output.smtp.user }}">
+    </label>
+    <label>SMTP-Passwort
+      <input type="password" name="smtp_password" value="{{ cfg.output.smtp.password }}" autocomplete="off">
+    </label>
+    <label class="checkbox-label">
+      <input type="checkbox" name="smtp_use_tls" {% if cfg.output.smtp.use_tls %}checked{% endif %}>
+      TLS verwenden
+    </label>
+  </fieldset>
+
+  <button type="submit" class="btn btn-primary">Speichern</button>
+</form>
+
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Reports – Recherche-LXC{% endblock %}
+{% block content %}
+<h1>Alle Reports</h1>
+{% if reports %}
+  <ul class="report-list">
+    {% for r in reports %}
+      <li><a href="/reports/{{ r.name }}">{{ r.name }}</a> <span class="muted">{{ r.mtime.strftime("%d.%m.%Y %H:%M") }}</span></li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="muted">Noch keine Reports vorhanden.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,17 @@
+[Unit]
+Description=Recherche-LXC Web-Dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=research
+WorkingDirectory=/opt/research-lxc
+Environment=PYTHONUNBUFFERED=1
+Environment=RESEARCH_LXC_CONFIG=/opt/research-lxc/config.yaml
+ExecStart=/opt/research-lxc/venv/bin/python -m uvicorn app.web.server:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

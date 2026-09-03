@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Recherche-LXC{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="/">Recherche-LXC</a>
+      <nav>
+        <a href="/">Dashboard</a>
+        <a href="/settings">Einstellungen</a>
+        <a href="/reports">Reports</a>
+      </nav>
+    </div>
+  </header>
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">
+    Recherche-LXC &middot; Brave Search (budgetiert) + externes Ollama
+  </footer>
+</body>
+</html>

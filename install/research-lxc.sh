@@ -61,32 +61,15 @@ mkdir -p "$APP_DIR/data" "$APP_DIR/reports"
 if [[ -f "$APP_DIR/config.yaml" ]]; then
   msg_info "config.yaml existiert bereits, wird NICHT überschrieben."
 else
-  echo ""
-  echo "── Konfiguration ────────────────────────────────────────────────"
-  read -rp "Brave Search API Key: " BRAVE_API_KEY
-  read -rp "Ollama Base-URL [http://192.168.1.10:11434]: " OLLAMA_URL
-  OLLAMA_URL=${OLLAMA_URL:-http://192.168.1.10:11434}
-  read -rp "Ollama Modell [llama3.1]: " OLLAMA_MODEL
-  OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.1}
-  read -rp "Branche (für Konkurrenzanalyse) [SmartHome Integration]: " BRANCHE
-  BRANCHE=${BRANCHE:-SmartHome Integration}
-  read -rp "Region [Main-Tauber-Kreis]: " REGION
-  REGION=${REGION:-Main-Tauber-Kreis}
-  read -rp "Ziel-E-Mail für Reports [info@lichtvalleyapps.de]: " EMAIL_TO
-  EMAIL_TO=${EMAIL_TO:-info@lichtvalleyapps.de}
-  echo "────────────────────────────────────────────────────────────────"
-  echo ""
-
   cp "$APP_DIR/config.example.yaml" "$APP_DIR/config.yaml"
+  # Platzhalter-Werte leeren -- die eigentliche Konfiguration (Brave API Key,
+  # Ollama-URL, Branche, Region, ...) erfolgt komplett über das Web-Dashboard
+  # unter /settings, nicht mehr per SSH-Terminal-Abfrage.
   sed -i \
-    -e "s|DEIN_BRAVE_API_KEY|${BRAVE_API_KEY}|" \
-    -e "s|http://OLLAMA-HOST:11434|${OLLAMA_URL}|" \
-    -e "s|model: \"llama3.1\"|model: \"${OLLAMA_MODEL}\"|" \
-    -e "s|SmartHome Integration|${BRANCHE}|g" \
-    -e "s|Main-Tauber-Kreis|${REGION}|g" \
-    -e "s|email_to: \"info@lichtvalleyapps.de\"|email_to: \"${EMAIL_TO}\"|" \
+    -e 's|DEIN_BRAVE_API_KEY||' \
+    -e 's|http://OLLAMA-HOST:11434||' \
     "$APP_DIR/config.yaml"
-  msg_ok "config.yaml erstellt (SMTP bleibt leer -- Reports zunächst nur lokal unter reports/)"
+  msg_ok "config.yaml aus Vorlage erstellt (noch leer -- Konfiguration erfolgt im Dashboard)"
 fi
 
 chown -R "$SERVICE_USER:$SERVICE_USER" "$APP_DIR"
@@ -95,19 +78,32 @@ msg_info "Installiere systemd-Units..."
 cp "$APP_DIR/deploy/research-lxc@.service" /etc/systemd/system/
 cp "$APP_DIR/deploy/research-lxc-competitor.timer" /etc/systemd/system/
 cp "$APP_DIR/deploy/research-lxc-news.timer" /etc/systemd/system/
+cp "$APP_DIR/deploy/research-lxc-web.service" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now research-lxc-competitor.timer research-lxc-news.timer
 msg_ok "Timer aktiviert (Konkurrenzanalyse wöchentlich Mo 06:00, News-Digest täglich 07:00)"
+systemctl enable --now research-lxc-web.service
+msg_ok "Web-Dashboard gestartet (Port 8000)"
+
+IP=$(hostname -I | awk '{print $1}')
 
 echo ""
 msg_ok "Installation abgeschlossen."
+echo ""
+echo -e "  ${GN}┌──────────────────────────────────────────────────────────┐${CL}"
+echo -e "  ${GN}│${CL}  Dashboard:  ${GN}http://${IP}:8000${CL}"
+echo -e "  ${GN}│${CL}  Dort zuerst unter '/settings' Brave API Key, Ollama-URL,"
+echo -e "  ${GN}│${CL}  Branche/Region und Ziel-E-Mail eintragen."
+echo -e "  ${GN}└──────────────────────────────────────────────────────────┘${CL}"
+echo ""
+echo "  Alternativ per Konsole konfigurieren: nano $APP_DIR/config.yaml"
 echo ""
 echo "  Manueller Testlauf:"
 echo "    cd $APP_DIR && sudo -u $SERVICE_USER venv/bin/python -m app.main \\"
 echo "      --module competitor_analysis --config config.yaml --no-email -v"
 echo ""
-echo "  Konfiguration bearbeiten:  nano $APP_DIR/config.yaml"
-echo "  Nächste Timer-Läufe:       systemctl list-timers 'research-lxc-*'"
-echo "  Reports:                   ls $APP_DIR/reports/"
-echo "  Logs:                      journalctl -u research-lxc@competitor_analysis.service"
+echo "  Nächste Timer-Läufe:  systemctl list-timers 'research-lxc-*'"
+echo "  Reports:              ls $APP_DIR/reports/"
+echo "  Logs (Batch-Läufe):   journalctl -u research-lxc@competitor_analysis.service"
+echo "  Logs (Dashboard):     journalctl -u research-lxc-web.service"
 echo ""
