@@ -40,6 +40,12 @@ else
   msg_info "Service-User '$SERVICE_USER' existiert bereits"
 fi
 
+# git läuft in diesem Script immer als root; nach dem ersten Lauf gehört
+# APP_DIR aber dem Service-User 'research' (siehe chown weiter unten).
+# Ohne diese Ausnahme verweigert git ab Version 2.35.2 den Zugriff mit
+# "detected dubious ownership" bei jedem erneuten Lauf (Update/Re-Install).
+git config --global --add safe.directory "$APP_DIR"
+
 if [[ -d "$APP_DIR/.git" ]]; then
   msg_info "Bestehende Installation gefunden, aktualisiere Repo..."
   git -C "$APP_DIR" pull --ff-only
