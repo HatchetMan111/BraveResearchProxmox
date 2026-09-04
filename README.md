@@ -31,6 +31,13 @@ Anpassen z.B.: `... -- --ctid 101 --hostname research-lxc --storage local-lvm --
 den vorhandenen Container am Hostnamen und aktualisiert nur die App
 (`config.yaml` bleibt erhalten).
 
+**Deinstallation** (entfernt Units, Service-User und `/opt/research-lxc`
+inkl. Config, Reports und Budget-DB – ggf. vorher sichern):
+
+```bash
+bash -c "$(wget -qLO - https://raw.githubusercontent.com/HatchetMan111/BraveResearchProxmox/main/install/research-lxc.sh)" -- --uninstall
+```
+
 **Alternative:** Container manuell erstellen und dann *im Container* als root:
 
 ```bash

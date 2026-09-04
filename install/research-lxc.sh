@@ -37,11 +37,13 @@ APP_DIR="/opt/research-lxc"
 SERVICE_USER="research"
 
 # ---------- Farbige Ausgabe (Community-Scripts-Stil) ----------
+# Alles nach stderr: stdout bleibt sauber für Command-Substitution
+# (z.B. tpl_ref=$(ensure_template) darf keinen Info-Text enthalten).
 RD=$(printf '\033[01;31m'); GN=$(printf '\033[1;92m'); YW=$(printf '\033[33m')
 CL=$(printf '\033[m')
-msg_info()  { echo -e " ${YW}➜${CL} $1"; }
-msg_ok()    { echo -e " ${GN}✔${CL} $1"; }
-msg_error() { echo -e " ${RD}✘${CL} $1"; }
+msg_info()  { echo -e " ${YW}➜${CL} $1" >&2; }
+msg_ok()    { echo -e " ${GN}✔${CL} $1" >&2; }
+msg_error() { echo -e " ${RD}✘${CL} $1" >&2; }
 
 usage() {
   cat <<'EOF'
@@ -64,6 +66,8 @@ Optionen (Host-Modus):
   --ip ADDR        IP, z.B. dhcp oder 192.168.178.130/24,gw=192.168.178.1 (Standard: dhcp)
   --inner          Container-Modus erzwingen (App direkt installieren)
   --host           Host-Modus erzwingen (LXC erstellen)
+  --uninstall      Lokale Installation entfernen (Units, Service-User, /opt/research-lxc)
+                   ACHTUNG: löscht auch config.yaml, Reports und Budget-DB!
   -h, --help       Diese Hilfe
 Umgebungsvariablen RESEARCH_CTID, RESEARCH_HOSTNAME, RESEARCH_STORAGE,
 RESEARCH_CORES, RESEARCH_MEMORY, RESEARCH_DISK, RESEARCH_BRIDGE,
@@ -73,6 +77,7 @@ EOF
 
 # ---------- Argumente ----------
 FORCE_MODE=""   # "host" | "inner" | ""
+UNINSTALL=0
 CTID="${RESEARCH_CTID:-}"
 HOSTNAME="${RESEARCH_HOSTNAME:-research-lxc}"
 STORAGE="${RESEARCH_STORAGE:-local-lvm}"
@@ -89,6 +94,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --inner) FORCE_MODE="inner"; shift ;;
     --host) FORCE_MODE="host"; shift ;;
+    --uninstall) UNINSTALL=1; shift ;;
     --ctid) CTID="$2"; shift 2 ;;
     --hostname) HOSTNAME="$2"; shift 2 ;;
     --storage) STORAGE="$2"; shift 2 ;;
@@ -383,6 +389,30 @@ install_host() {
 }
 
 # ---------- Start ----------
+if [[ "$UNINSTALL" == "1" ]]; then
+  # Sicherheitsnetz: niemals / oder ein leeres Ziel löschen.
+  if [[ -z "$APP_DIR" || "$APP_DIR" == "/" ]]; then
+    msg_error "Unsicheres APP_DIR, Abbruch."
+    exit 1
+  fi
+  msg_info "Deinstalliere lokale Installation ($APP_DIR)..."
+  systemctl disable --now research-lxc-all.timer research-lxc-web.service 2>/dev/null || true
+  rm -f /etc/systemd/system/research-lxc@.service \
+        /etc/systemd/system/research-lxc-all.timer \
+        /etc/systemd/system/research-lxc-web.service
+  systemctl daemon-reload 2>/dev/null || true
+  if id "$SERVICE_USER" &>/dev/null; then
+    userdel "$SERVICE_USER" 2>/dev/null || true
+    msg_ok "Service-User '$SERVICE_USER' entfernt"
+  fi
+  if [[ -d "$APP_DIR" ]]; then
+    rm -rf "$APP_DIR"
+    msg_ok "$APP_DIR entfernt (inkl. config.yaml, Reports, Budget-DB)"
+  fi
+  msg_ok "Deinstallation abgeschlossen."
+  exit 0
+fi
+
 if [[ "$MODE" == "host" ]]; then
   install_host
 else
