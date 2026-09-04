@@ -48,9 +48,11 @@ def build_prompt(
     system = (
         "Du bist Marktanalyst für ein regionales Dienstleistungsunternehmen. "
         "Du erhältst rohe Web-Suchergebnisse und erstellst daraus einen "
-        "sachlichen, kurzen Konkurrenzanalyse-Bericht auf Deutsch. "
+        "sachlichen, ausführlichen Konkurrenzanalyse-Bericht auf Deutsch. "
         "Erfinde keine Fakten, die nicht in den Suchergebnissen stehen. "
-        "Wenn ein Ergebnis nicht eindeutig relevant ist, ignoriere es."
+        "Wenn ein Ergebnis nicht eindeutig relevant ist, ignoriere es. "
+        "Verlinke jeden genannten Anbieter/jede Quelle als Markdown-Link "
+        "[Name](URL) mit der exakten URL aus den Rohdaten."
     )
 
     blocks = []
@@ -67,12 +69,18 @@ Region: {region}
 Rohdaten aus der Websuche:
 {raw_data}
 
-Erstelle daraus einen Konkurrenzanalyse-Kurzbericht mit folgender Struktur:
-1. Zusammenfassung (2-3 Sätze)
-2. Identifizierte Anbieter/Wettbewerber (mit Quelle)
+Erstelle daraus einen ausführlichen Konkurrenzanalyse-Bericht mit folgender Struktur:
+1. Zusammenfassung (3-5 Sätze, wichtigste Erkenntnisse vorweg)
+2. Identifizierte Anbieter/Wettbewerber als Liste: JEDEN Anbieter mit
+   Markdown-Link [Anbietername](URL) plus 1-2 Sätzen Beschreibung
+   (Leistung, Besonderheit, Region). Nutze dafür alle relevanten Quellen
+   aus den Rohdaten -- lasse keinen relevanten Treffer weg.
 3. Auffällige Preise oder Angebote, falls in den Daten erkennbar
-4. Einschätzung: gibt es neue Entwicklungen seit der letzten Recherche?
+   (ebenfalls mit Quellen-Link pro Aussage)
+4. Neue Entwicklungen / Veränderungen (was ist neu, was hat sich geändert?)
+5. Fazit mit kurzer Einschätzung für das eigene Unternehmen
 
-Schreibe verständlich, ohne Fachjargon, maximal eine halbe DIN-A4-Seite."""
+Schreibe verständlich, ohne Fachjargon, ausführlich (ca. 1-2 DIN-A4-Seiten).
+Jede Tatsachenbehauptung braucht einen Quellen-Link aus den Rohdaten."""
 
     return system, user

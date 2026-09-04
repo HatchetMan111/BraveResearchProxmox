@@ -14,6 +14,50 @@ from .pipeline import RunResult
 logger = logging.getLogger(__name__)
 
 
+def _sources_section(result: RunResult) -> str:
+    """Baut den Quellen-Anhang: gruppiert nach Suchanfrage plus deduplizierte
+    Link-Liste. Macht Reports deutlich größer und jede Aussage nachprüfbar."""
+    sources = getattr(result, "sources", []) or []
+    if not sources:
+        return ""
+    lines = ["", "---", "", "## Durchsuchte Quellen (Brave Search)", ""]
+    lines.append(
+        f"Aus {len(result.queries_run)} Suchanfrage(n) wurden "
+        f"{len(sources)} unterschiedliche Quellen in den Report einbezogen:"
+    )
+    lines.append("")
+    by_query: dict[str, list[dict]] = {}
+    for s in sources:
+        by_query.setdefault(s.get("query", "?"), []).append(s)
+    for query, items in by_query.items():
+        lines.append(f"### Suche: „{query}“")
+        lines.append("")
+        for s in items:
+            title = s.get("title") or s.get("url", "")
+            url = s.get("url", "")
+            snippet = (s.get("snippet") or "").strip()
+            age = s.get("age")
+            age_str = f" — {age}" if age else ""
+            if url:
+                lines.append(f"- [{title}]({url}){age_str}")
+            else:
+                lines.append(f"- {title}{age_str}")
+            if snippet:
+                short = snippet if len(snippet) <= 300 else snippet[:300] + "…"
+                lines.append(f"  - {short}")
+        lines.append("")
+    lines += ["## Alle Links im Überblick", ""]
+    for s in sources:
+        title = s.get("title") or s.get("url", "")
+        url = s.get("url", "")
+        if url:
+            lines.append(f"- [{title}]({url})")
+        else:
+            lines.append(f"- {title}")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def write_report(result: RunResult, output_cfg: OutputConfig) -> Path:
     reports_dir = Path(output_cfg.reports_dir)
     reports_dir.mkdir(parents=True, exist_ok=True)
@@ -44,9 +88,11 @@ def write_report(result: RunResult, output_cfg: OutputConfig) -> Path:
 Erstellt: {result.started_at.isoformat()}
 {status_line}
 {warning}
+Ausgeführte Suchanfragen: {len(result.queries_run)}/{len(result.queries_planned)}
+Gespeichert lokal unter: `{path.name}` (Ordner `{reports_dir.name}/`)
 ---
-
 {result.content}
+{_sources_section(result)}
 """
     path.write_text(content, encoding="utf-8")
     logger.info("Report geschrieben: %s", path)

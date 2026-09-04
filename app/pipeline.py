@@ -33,6 +33,9 @@ class RunResult:
     budget_status: BudgetStatus | None = None
     content: str = ""
     budget_exhausted: bool = False
+    # Alle durchsuchten Quellen (für den Report-Anhang mit Links).
+    # Einträge: {"query": str, "title": str, "url": str, "snippet": str, "age": str|None}
+    sources: list[dict] = field(default_factory=list)
 
 
 def list_available_modules(config: AppConfig) -> list[str]:
@@ -98,6 +101,23 @@ def _run(module, options, brave: BraveClient, ollama: OllamaClient, budget_track
             break
 
     result.budget_status = budget_tracker.status()
+
+    # Quellen für den Report-Anhang sammeln (nach URL deduplizieren,
+    # Reihenfolge der Suche beibehalten).
+    seen_urls: set[str] = set()
+    for query, results in query_results:
+        for r in results:
+            if r.url and r.url not in seen_urls:
+                seen_urls.add(r.url)
+                result.sources.append(
+                    {
+                        "query": query,
+                        "title": r.title or r.url,
+                        "url": r.url,
+                        "snippet": r.snippet or "",
+                        "age": r.age,
+                    }
+                )
 
     if not query_results:
         result.content = (

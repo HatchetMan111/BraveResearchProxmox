@@ -48,6 +48,12 @@ DEFAULTS: dict[str, Any] = {
         },
     },
     "custom_modules": [],
+    "schedule": {
+        "enabled": True,
+        "time": "06:00",  # HH:MM -- Tageszeit des automatischen Laufs
+        "frequency": "daily",  # "daily" oder "weekly"
+        "weekday": "mon",  # nur bei frequency=weekly: mon..sun
+    },
 }
 
 

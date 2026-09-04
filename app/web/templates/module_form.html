@@ -7,42 +7,57 @@
 
 {% if error %}<div class="banner banner-error">{{ error }}</div>{% endif %}
 
+<div class="card">
+  <h2>So funktioniert ein Modul — Schritt für Schritt</h2>
+  <ol class="muted">
+    <li><strong>Name (Pflicht):</strong> Kurz-Kennung für das Thema, z.B. <code>Vereinsnachrichten</code>. Wird automatisch zu <code>vereinsnachrichten</code> normalisiert und kann später nicht mehr geändert werden.</li>
+    <li><strong>Aktiviert:</strong> Nur aktivierte Module laufen beim automatischen Zeitplan-Lauf und über „Jetzt ausführen“ mit.</li>
+    <li><strong>Suchtyp:</strong> <code>Websuche</code> für allgemeine Themen (Firmen, Produkte, Konkurrenz), <code>News-Suche</code> für Aktuelles mit Datumsangabe (Presse, Veranstaltungen, Fördernews).</li>
+    <li><strong>Suchanfragen (Pflicht, eine pro Zeile):</strong> 2–5 breite Anfragen genügen — die Feinarbeit macht Ollama. Beispiel:
+      <br><code>Musterverein Region XY<br>Vereinsheim Neuigkeiten Region XY<br>Förderprogramme Vereine 2026</code></li>
+    <li><strong>Ollama-Anweisung (optional):</strong> Steuert, wie der Report aufbereitet wird (Stil, Struktur, Schwerpunkt). Leer lassen = neutrale Standard-Zusammenfassung mit Quellen-Links. Beispiel: <code>Schreibe im Stil einer Vereinszeitung: kurze Sätze, freundlich, Termine fett hervorheben.</code></li>
+  </ol>
+  <p class="muted">Ablauf nach dem Speichern: Brave Search liefert Rohdaten (kostet Budget) → Ollama fasst lokal ausführlich mit Quellen-Links zusammen → Report landet lokal unter <code>reports/</code> und erscheint auf dem Dashboard.</p>
+</div>
+
 <form method="post" action="{% if is_edit %}/modules/{{ module.name }}/edit{% else %}/modules/new{% endif %}" class="settings-form">
   <fieldset>
-    <legend>Grunddaten</legend>
+    <legend>1. Grunddaten</legend>
 
-    <label>Name
+    <label>Name (Pflicht, später unveränderbar)
       <input type="text" name="name" value="{{ module.name if module else '' }}"
              placeholder="z.B. Vereinsnachrichten" {% if is_edit %}readonly{% endif %} required>
       {% if is_edit %}<span class="hint">Der Name kann nachträglich nicht mehr geändert werden.</span>{% endif %}
+      {% if not is_edit %}<span class="hint">Nur Buchstaben, Zahlen, Leerzeichen — wird automatisch kleingeschrieben mit Unterstrichen.</span>{% endif %}
     </label>
 
     <label class="checkbox-label">
       <input type="checkbox" name="enabled" {% if not module or module.get("enabled", True) %}checked{% endif %}>
-      Aktiviert (läuft beim täglichen "Alle Module ausführen"-Lauf mit)
+      Aktiviert (läuft beim automatischen Zeitplan-Lauf und manuell mit)
     </label>
 
-    <label>Suchtyp
+    <label>Suchtyp — was soll durchsucht werden?
       <select name="search_type">
-        <option value="web" {% if not module or module.get("search_type", "web") == "web" %}selected{% endif %}>Websuche</option>
-        <option value="news" {% if module and module.get("search_type") == "news" %}selected{% endif %}>News-Suche</option>
+        <option value="web" {% if not module or module.get("search_type", "web") == "web" %}selected{% endif %}>Websuche (allgemein: Firmen, Produkte, Konkurrenz)</option>
+        <option value="news" {% if module and module.get("search_type") == "news" %}selected{% endif %}>News-Suche (Aktuelles mit Datum: Presse, Termine)</option>
       </select>
     </label>
   </fieldset>
 
   <fieldset>
-    <legend>Suchanfragen</legend>
-    <label>Eine Suchanfrage pro Zeile
-      <textarea name="queries" rows="5" placeholder="z.B.&#10;Musterverein Region XY&#10;Vereinsheim Neuigkeiten Region XY">{% if module %}{{ module.get("queries", []) | join("\n") }}{% endif %}</textarea>
+    <legend>2. Suchanfragen (Pflicht)</legend>
+    <label>Eine Suchanfrage pro Zeile — 2–5 breite Anfragen genügen
+      <textarea name="queries" rows="5" placeholder="z.B.&#10;Musterverein Region XY&#10;Vereinsheim Neuigkeiten Region XY&#10;Förderprogramme Vereine 2026">{% if module %}{{ module.get("queries", []) | join("\n") }}{% endif %}</textarea>
     </label>
-    <p class="hint">Bewusst wenige, breite Suchanfragen -- die Feinarbeit übernimmt Ollama beim Zusammenfassen.</p>
+    <p class="hint">Jede Zeile = eine Brave-Anfrage (verbraucht Budget). Bewusst wenige, breite Suchanfragen — die Feinarbeit übernimmt Ollama beim Zusammenfassen. Tipp: Orts-/Regionsnamen immer mit angeben.</p>
   </fieldset>
 
   <fieldset>
-    <legend>Ollama-Anweisung (System-Prompt)</legend>
-    <label>Wie soll Ollama die Ergebnisse aufbereiten?
-      <textarea name="system_prompt" rows="4" placeholder="Leer lassen für eine neutrale Standard-Zusammenfassung.">{% if module %}{{ module.get("system_prompt", "") }}{% endif %}</textarea>
+    <legend>3. Ollama-Anweisung / System-Prompt (optional)</legend>
+    <label>Wie soll Ollama die Ergebnisse aufbereiten? (leer = Standard)
+      <textarea name="system_prompt" rows="4" placeholder="Leer lassen für eine neutrale Standard-Zusammenfassung mit Quellen-Links. Beispiel: Schreibe im Stil einer Vereinszeitung: kurze Sätze, freundlich, Termine fett.">{% if module %}{{ module.get("system_prompt", "") }}{% endif %}</textarea>
     </label>
+    <p class="hint">Hier Stil, Struktur und Schwerpunkt vorgeben. Quellen-Links baut Ollama automatisch ein — dafür musst du nichts tun.</p>
   </fieldset>
 
   <button type="submit" class="btn btn-primary">{% if is_edit %}Speichern{% else %}Modul anlegen{% endif %}</button>

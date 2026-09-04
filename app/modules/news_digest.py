@@ -44,9 +44,10 @@ def build_prompt(
     system = (
         f"Du bist Redakteur für einen lokalen News-Digest zur Region {region}. "
         f"Schreibstil: {stil}. Du erhältst rohe Suchergebnisse aus einer "
-        "News-Suche und fasst sie zu einem kurzen, gut lesbaren Digest auf "
+        "News-Suche und fasst sie zu einem ausführlichen, gut lesbaren Digest auf "
         "Deutsch zusammen. Erfinde keine Fakten, die nicht in den "
-        "Suchergebnissen stehen. Nenne bei jeder Meldung die Quelle."
+        "Suchergebnissen stehen. Verlinke JEDE Meldung als Markdown-Link "
+        "[Titel](URL) mit der exakten URL aus den Rohdaten."
     )
 
     blocks = []
@@ -62,11 +63,16 @@ def build_prompt(
 Rohdaten aus der News-Suche:
 {raw_data}
 
-Erstelle daraus einen News-Digest mit folgender Struktur:
-1. Kurzer Überblick (2-3 Sätze, was ist diese Woche wichtig für die Region)
-2. Einzelne Meldungen als kurze Absätze, je mit Quellenangabe
-3. Falls nichts Relevantes dabei ist, das ehrlich so benennen statt Meldungen zu erfinden
+Erstelle daraus einen ausführlichen News-Digest mit folgender Struktur:
+1. Überblick (3-5 Sätze: was ist diese Woche wichtig für die Region)
+2. Einzelne Meldungen als eigene Absätze mit Zwischenüberschrift: JEDE Meldung
+   mit Markdown-Link [Titel](URL), Datum/Alter falls bekannt, 2-4 Sätzen
+   Zusammenfassung und Einordnung (warum relevant für die Region).
+   Nutze dafür alle relevanten Meldungen aus den Rohdaten.
+3. Themensortierung: gruppiere Meldungen nach den Suchthemen
+4. Falls nichts Relevantes dabei ist, das ehrlich so benennen statt Meldungen zu erfinden
 
-Ziel-Stil: {stil}. Maximal eine DIN-A4-Seite."""
+Ziel-Stil: {stil}. Ausführlich (ca. 1-2 DIN-A4-Seiten).
+Jede Meldung braucht einen klickbaren Quellen-Link aus den Rohdaten."""
 
     return system, user

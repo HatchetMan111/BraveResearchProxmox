@@ -40,9 +40,51 @@
     <p class="hint">Modell oben aus der Liste wählen — es wird automatisch in dieses Feld übernommen. Alternativ einen Namen manuell eintippen (für Modelle, die erst per <code>ollama pull</code> installiert werden).</p>
     <div class="model-row">
       <button type="button" class="btn" id="test-ollama-btn">Verbindung testen</button>
+      <button type="submit" class="btn btn-primary">Ollama-Einstellungen speichern</button>
     </div>
+    <p class="hint" id="ollama-dirty-hint" style="display:none">⚠️ Ungespeicherte Änderung — erst auf „Ollama-Einstellungen speichern“ (oder ganz unten auf „Speichern“) klicken. Die Return-Taste im Modellfeld speichert ebenfalls.</p>
     <p class="model-status" id="model-status" aria-live="polite"></p>
     <p class="model-status" id="ollama-test-status" aria-live="polite"></p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Zeitplan (automatische Läufe)</legend>
+    <label class="checkbox-label">
+      <input type="checkbox" name="schedule_enabled" {% if cfg.schedule.enabled %}checked{% endif %}>
+      Automatische Läufe aktiviert
+    </label>
+    <div class="model-row">
+      <div>
+        <label>Uhrzeit (HH:MM)
+          <input type="time" name="schedule_time" value="{{ cfg.schedule.time }}">
+        </label>
+      </div>
+      <div>
+        <label>Häufigkeit
+          <select name="schedule_frequency" id="schedule_frequency">
+            <option value="daily" {% if cfg.schedule.frequency == "daily" %}selected{% endif %}>Täglich</option>
+            <option value="weekly" {% if cfg.schedule.frequency == "weekly" %}selected{% endif %}>Wöchentlich</option>
+          </select>
+        </label>
+      </div>
+      <div>
+        <label>Wochentag (nur wöchentlich)
+          <select name="schedule_weekday">
+            <option value="mon" {% if cfg.schedule.weekday == "mon" %}selected{% endif %}>Montag</option>
+            <option value="tue" {% if cfg.schedule.weekday == "tue" %}selected{% endif %}>Dienstag</option>
+            <option value="wed" {% if cfg.schedule.weekday == "wed" %}selected{% endif %}>Mittwoch</option>
+            <option value="thu" {% if cfg.schedule.weekday == "thu" %}selected{% endif %}>Donnerstag</option>
+            <option value="fri" {% if cfg.schedule.weekday == "fri" %}selected{% endif %}>Freitag</option>
+            <option value="sat" {% if cfg.schedule.weekday == "sat" %}selected{% endif %}>Samstag</option>
+            <option value="sun" {% if cfg.schedule.weekday == "sun" %}selected{% endif %}>Sonntag</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <div class="model-row">
+      <button type="submit" class="btn btn-primary">Zeitplan speichern</button>
+    </div>
+    <p class="hint">Legt fest, <strong>wann und wie oft</strong> alle aktivierten Module automatisch laufen. Hinweis: Der Wunsch wird hier gespeichert — der System-Timer muss einmalig dazu passend gesetzt werden: <code>sudo systemctl edit --full research-lxc-all.timer</code> (täglich: <code>OnCalendar=*-*-* HH:MM:00</code>, wöchentlich: <code>OnCalendar=Mon *-*-* HH:MM:00</code>), danach <code>sudo systemctl daemon-reload &amp;&amp; sudo systemctl restart research-lxc-all.timer</code>. Aktueller Timer-Status steht auf dem Dashboard.</p>
   </fieldset>
 
   <fieldset>
@@ -207,7 +249,8 @@
   modelSelect.addEventListener("change", function () {
     if (modelSelect.value) {
       modelInput.value = modelSelect.value;
-      setStatus(statusEl, "Modell '" + modelSelect.value + "' gewählt — unten auf Speichern klicken.", true);
+      setStatus(statusEl, "Modell '" + modelSelect.value + "' gewählt — auf „Ollama-Einstellungen speichern“ klicken.", true);
+      showDirty();
     }
   });
 
@@ -220,7 +263,14 @@
     } else if (modelSelect.options.length) {
       modelSelect.value = "";
     }
+    showDirty();
   });
+  baseUrlInput.addEventListener("input", showDirty);
+
+  function showDirty() {
+    const hint = document.getElementById("ollama-dirty-hint");
+    if (hint) { hint.style.display = "block"; }
+  }
 
   loadBtn.addEventListener("click", loadModels);
   testBtn.addEventListener("click", testConnection);

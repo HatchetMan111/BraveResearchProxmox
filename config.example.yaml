@@ -48,3 +48,16 @@ modules:
 # Frei definierbare, zusätzliche Recherche-Module -- Anlage und Verwaltung
 # bequem über das Dashboard unter /modules, kein Code nötig.
 custom_modules: []
+
+# Automatischer Zeitplan (systemd-Timer). Wird bequem über das Dashboard
+# unter /settings gepflegt. Hinweis: Nach dem Ändern hier den Timer neu
+# setzen, z.B.:
+#   sudo systemctl edit --full research-lxc-all.timer
+# und dort OnCalendar anpassen (täglich: *-*-* HH:MM:00,
+# wöchentlich: Mon *-*-* HH:MM:00), danach:
+#   sudo systemctl daemon-reload && sudo systemctl restart research-lxc-all.timer
+schedule:
+  enabled: true
+  time: "06:00"      # HH:MM (24h) -- Tageszeit des automatischen Laufs
+  frequency: "daily" # "daily" oder "weekly"
+  weekday: "mon"     # nur bei frequency=weekly: mon, tue, wed, thu, fri, sat, sun

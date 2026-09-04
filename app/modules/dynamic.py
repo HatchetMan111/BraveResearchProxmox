@@ -15,9 +15,9 @@ from ..config import CustomModuleConfig
 
 DEFAULT_SYSTEM_PROMPT = (
     "Du erhältst rohe Suchergebnisse zu einem Recherche-Thema und fasst sie "
-    "zu einem kurzen, sachlichen Bericht auf Deutsch zusammen. Erfinde keine "
-    "Fakten, die nicht in den Suchergebnissen stehen, und nenne bei jeder "
-    "Meldung die Quelle."
+    "zu einem ausführlichen, sachlichen Bericht auf Deutsch zusammen. Erfinde keine "
+    "Fakten, die nicht in den Suchergebnissen stehen. Verlinke jede Quelle "
+    "als Markdown-Link [Titel](URL) mit der exakten URL aus den Rohdaten."
 )
 
 
@@ -46,8 +46,10 @@ class DynamicModule:
         user_prompt = f"""Rohdaten aus der Suche:
 {raw_data}
 
-Erstelle daraus einen kurzen, gut lesbaren Bericht auf Deutsch (max. eine
-DIN-A4-Seite). Falls nichts Relevantes dabei ist, das ehrlich so benennen
-statt Inhalte zu erfinden."""
+Erstelle daraus einen ausführlichen, gut lesbaren Bericht auf Deutsch
+(ca. 1-2 DIN-A4-Seiten) mit Zusammenfassung vorweg, dann Details pro
+Thema/Quelle. Verlinke jede verwendete Quelle als Markdown-Link
+[Titel](URL) mit der exakten URL aus den Rohdaten. Falls nichts Relevantes
+dabei ist, das ehrlich so benennen statt Inhalte zu erfinden."""
 
         return self._system_prompt, user_prompt

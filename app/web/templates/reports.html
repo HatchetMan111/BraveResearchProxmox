@@ -2,6 +2,7 @@
 {% block title %}Reports – Recherche-LXC{% endblock %}
 {% block content %}
 <h1>Alle Reports</h1>
+<p class="muted">Alle Reports liegen <strong>lokal</strong> im Ordner <code>reports/</code> auf dem LXC und bleiben dort zum Nachlesen — klicke einen Report zum Ansehen.</p>
 {% if reports %}
   <ul class="report-list">
     {% for r in reports %}
@@ -9,6 +10,6 @@
     {% endfor %}
   </ul>
 {% else %}
-  <p class="muted">Noch keine Reports vorhanden.</p>
+  <p class="muted">Noch keine Reports vorhanden. Starte einen Lauf über das <a href="/">Dashboard</a> — ein Lauf dauert typischerweise 2–10 Minuten pro Modul.</p>
 {% endif %}
 {% endblock %}

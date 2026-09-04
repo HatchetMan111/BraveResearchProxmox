@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import subprocess
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -90,17 +91,94 @@ def _valid_module_names(raw_cfg: dict[str, Any]) -> set[str]:
     return set(MODULES) | {cm.get("name") for cm in raw_cfg.get("custom_modules", []) if cm.get("name")}
 
 
+def _format_duration(total_seconds: float | None) -> str:
+    """Formatiert Sekunden als '3 min 12 s' / '45 s' / '1 h 5 min'."""
+    if total_seconds is None:
+        return "–"
+    secs = max(0, int(total_seconds))
+    h, rem = divmod(secs, 3600)
+    m, s = divmod(rem, 60)
+    if h:
+        return f"{h} h {m} min"
+    if m:
+        return f"{m} min {s} s"
+    return f"{s} s"
+
+
+def _run_status_view() -> dict[str, dict[str, Any]]:
+    """Reichert RUN_STATUS um lesbare Laufzeit-/Fertig-Infos fürs Dashboard an."""
+    now = datetime.now(timezone.utc)
+    view: dict[str, dict[str, Any]] = {}
+    with _RUN_LOCK:
+        items = {k: dict(v) for k, v in RUN_STATUS.items()}
+    for name, st in items.items():
+        started = st.get("started_at")
+        finished = st.get("finished_at")
+        if st.get("status") == "running" and isinstance(started, datetime):
+            st["elapsed_seconds"] = (now - started).total_seconds()
+            st["elapsed_str"] = _format_duration(st["elapsed_seconds"])
+            st["started_str"] = started.astimezone().strftime("%H:%M:%S")
+        if isinstance(finished, datetime):
+            st["finished_str"] = finished.astimezone().strftime("%d.%m.%Y %H:%M")
+            if isinstance(started, datetime):
+                st["duration_seconds"] = (finished - started).total_seconds()
+                st["duration_str"] = _format_duration(st["duration_seconds"])
+        view[name] = st
+    return view
+
+
+def _schedule_info(raw_cfg: dict[str, Any]) -> dict[str, Any]:
+    sched = raw_cfg.get("schedule", {}) or {}
+    enabled = bool(sched.get("enabled", True))
+    time = str(sched.get("time", "06:00") or "06:00")
+    if not re.fullmatch(r"\d{2}:\d{2}", time):
+        time = "06:00"
+    frequency = str(sched.get("frequency", "daily") or "daily")
+    if frequency not in ("daily", "weekly"):
+        frequency = "daily"
+    weekday = str(sched.get("weekday", "mon") or "mon").lower()
+    if weekday not in ("mon", "tue", "wed", "thu", "fri", "sat", "sun"):
+        weekday = "mon"
+    weekday_de = {"mon": "Mo", "tue": "Di", "wed": "Mi", "thu": "Do",
+                  "fri": "Fr", "sat": "Sa", "sun": "So"}[weekday]
+    if frequency == "weekly":
+        human = f"wöchentlich ({weekday_de} {time} Uhr)"
+    else:
+        human = f"täglich {time} Uhr"
+    return {"enabled": enabled, "time": time, "frequency": frequency,
+            "weekday": weekday, "human": human}
+
+
+def _timer_status() -> dict[str, Any]:
+    """Liest den echten systemd-Timer-Status (fail-safe: None bei Fehler,
+    z.B. wenn das Dashboard nicht unter systemd läuft)."""
+    try:
+        out = subprocess.run(
+            ["systemctl", "list-timers", "research-lxc-all.timer", "--no-pager", "--no-legend"],
+            capture_output=True, text=True, timeout=5,
+        )
+        text = (out.stdout or "").strip()
+        if text and "research-lxc-all.timer" in text:
+            parts = text.split()
+            return {"active": True, "detail": text, "next": parts[0] if parts else ""}
+        return {"active": False, "detail": "Timer nicht aktiv.", "next": ""}
+    except Exception:
+        return {"active": None, "detail": "Timer-Status nicht abfragbar.", "next": ""}
+
+
 @app.get("/", response_class=HTMLResponse)
 def dashboard(request: Request):
     raw_cfg = config_io.load_raw_config(CONFIG_PATH)
     context = {
         "modules": raw_cfg.get("modules", {}),
         "custom_modules": raw_cfg.get("custom_modules", []),
-        "run_status": RUN_STATUS,
+        "run_status": _run_status_view(),
         "budget": _budget_snapshot(raw_cfg),
         "reports": _list_reports(raw_cfg, limit=8),
         "ollama_base_url": raw_cfg.get("ollama", {}).get("base_url", ""),
         "config_missing_api_key": not raw_cfg.get("brave", {}).get("api_key"),
+        "schedule": _schedule_info(raw_cfg),
+        "timer": _timer_status(),
     }
     return templates.TemplateResponse(request, "dashboard.html", context)
 
@@ -145,6 +223,15 @@ async def settings_save(request: Request):
     smtp["user"] = get("smtp_user")
     smtp["password"] = get("smtp_password", smtp.get("password", ""))
     smtp["use_tls"] = "smtp_use_tls" in form
+
+    sched = raw_cfg.setdefault("schedule", {})
+    sched["enabled"] = "schedule_enabled" in form
+    wanted_time = get("schedule_time", sched.get("time", "06:00"))
+    sched["time"] = wanted_time if re.fullmatch(r"\d{2}:\d{2}", wanted_time) else "06:00"
+    wanted_freq = get("schedule_frequency", sched.get("frequency", "daily"))
+    sched["frequency"] = wanted_freq if wanted_freq in ("daily", "weekly") else "daily"
+    wanted_day = get("schedule_weekday", sched.get("weekday", "mon")).lower()
+    sched["weekday"] = wanted_day if wanted_day in ("mon", "tue", "wed", "thu", "fri", "sat", "sun") else "mon"
 
     config_io.save_raw_config(CONFIG_PATH, raw_cfg)
     logger.info("Konfiguration über Dashboard aktualisiert (%s)", CONFIG_PATH)
@@ -242,6 +329,22 @@ def api_ollama_test(base_url: str = "", model: str = ""):
     )
 
 
+@app.get("/api/run-status")
+def api_run_status():
+    """JSON-Status aller Modul-Läufe für das Dashboard-Auto-Refresh
+    (Start-/Fertig-Zeit, Dauer, Report-Datei)."""
+    view = _run_status_view()
+    payload: dict[str, dict[str, Any]] = {}
+    for name, st in view.items():
+        item = dict(st)
+        for key in ("started_at", "finished_at"):
+            val = item.get(key)
+            if isinstance(val, datetime):
+                item[key] = val.isoformat()
+        payload[name] = item
+    return JSONResponse({"runs": payload})
+
+
 def _execute_run(module_name: str) -> None:
     with _RUN_LOCK:
         RUN_STATUS[module_name] = {"status": "running", "started_at": datetime.now(timezone.utc)}
@@ -250,10 +353,15 @@ def _execute_run(module_name: str) -> None:
         result = pipeline.run_module(module_name, config)
         report_path = output.write_report(result, config.output)
         output.send_report_email(result, report_path, config.output)
+        finished = datetime.now(timezone.utc)
         with _RUN_LOCK:
+            started = RUN_STATUS.get(module_name, {}).get("started_at", finished)
             RUN_STATUS[module_name] = {
                 "status": "error" if result.budget_exhausted and not result.queries_run else "done",
-                "finished_at": datetime.now(timezone.utc),
+                "started_at": started,
+                "finished_at": finished,
+                "duration_seconds": (finished - started).total_seconds()
+                if isinstance(started, datetime) else None,
                 "report_file": report_path.name,
                 "budget_exhausted": result.budget_exhausted,
             }
