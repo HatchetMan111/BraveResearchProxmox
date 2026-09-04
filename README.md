@@ -133,16 +133,22 @@ custom_modules:
     system_prompt: "Fasse kurz und sachlich zusammen."
 ```
 
-Eigenes Modul hinzufügen -- zwei Wege:
+Eigenes Modul hinzufügen -- drei Wege:
 
-1. **Ohne Code**: über das Dashboard unter `/modules` -- Name, Suchanfragen
+1. **Aus Vorlage** (empfohlen): unter `/modules` bei „Aus Vorlage anlegen“
+   ein Thema wählen (Arbeitsmarkt, Immobilien, Veranstaltungen,
+   Kommunalpolitik, Verkehr, Energie, Gesundheit, Bildung, Tourismus,
+   Wirtschaft) – nur Region/Stadt eintragen, Queries und Auswertung kommen
+   aus der Vorlage und bleiben editierbar.
+2. **Ohne Code**: über das Dashboard unter `/modules` -- Name, Suchanfragen
    und Ollama-Anweisung eintragen, läuft ab sofort beim täglichen
    `--module all`-Lauf mit.
 2. **Als Python-Modul**: Datei unter `app/modules/` mit `NAME`,
    `SEARCH_TYPE`, `build_queries()` und `build_prompt()` anlegen und in
    `app/modules/__init__.py` registrieren -- sinnvoll für Module mit
    komplexerer Query- oder Prompt-Logik als die einfache Query-Liste der
-   Dashboard-Module.
+   Dashboard-Module. Reine Themen-Vorlagen (Platzhalter wie `{region}`)
+   gehören dagegen in `app/modules/templates.py` -- ganz ohne neue Route.
 
 ## ⏰ Zeitplan pro Modul
 

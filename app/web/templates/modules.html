@@ -52,4 +52,19 @@
   {% endif %}
 </section>
 
+<section class="card">
+  <h2>Aus Vorlage anlegen</h2>
+  <p class="muted">Fertige Grundkonfigurationen für gängige Themen — nur Region/Stadt eintragen, Queries und Auswertung kommen aus der Vorlage.</p>
+  <div class="module-grid">
+    {% for t in templates %}
+      <div class="module-card">
+        <div class="module-head"><strong>{{ t.title }}</strong></div>
+        <p class="muted">{{ t.description }}</p>
+        <p class="muted">{{ t.queries | length }} Suchanfragen · {{ "News-Suche" if t.search_type == "news" else "Websuche" }}</p>
+        <a href="/modules/from-template/{{ t.key }}" class="btn">Verwenden</a>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+
 {% endblock %}

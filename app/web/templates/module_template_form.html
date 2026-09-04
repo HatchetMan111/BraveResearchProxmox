@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Modul aus Vorlage – Recherche-LXC{% endblock %}
+{% block content %}
+
+<p><a href="/modules">← Alle Module</a></p>
+<h1>Modul aus Vorlage: {{ template.title }}</h1>
+<p class="muted">{{ template.description }} Einfach Region/Stadt ausfüllen — die Suchanfragen und die Ollama-Anweisung kommen aus der Vorlage und bleiben danach frei editierbar.</p>
+
+{% if error %}<div class="banner banner-error">{{ error }}</div>{% endif %}
+{% set st = search_type or template.search_type %}
+{% set sp = system_prompt or template.system_prompt %}
+
+<form method="post" action="/modules/from-template/{{ template.key }}" class="settings-form" id="template-form">
+  <fieldset>
+    <legend>1. Deine Angaben</legend>
+    {% for f in template.fields %}
+      <label>{{ f.label }}{% if f.required %} (Pflicht){% endif %}
+        <input type="text" name="field_{{ f.name }}" id="field_{{ f.name }}"
+               value="{{ values.get(f.name, '') }}" placeholder="{{ f.placeholder }}"
+               {% if f.required %}required{% endif %}>
+      </label>
+    {% endfor %}
+  </fieldset>
+
+  <fieldset>
+    <legend>2. Modul-Details (vorausgefüllt, änderbar)</legend>
+    <label>Name
+      <input type="text" name="name" value="{{ module_name }}" placeholder="z.B. {{ template.suggested_name }}" required>
+      <span class="hint">Wird automatisch normalisiert (klein, Unterstriche).</span>
+    </label>
+    <label class="checkbox-label">
+      <input type="checkbox" name="enabled" checked>
+      Aktiviert (läuft beim automatischen Zeitplan-Lauf mit)
+    </label>
+    <label>Suchtyp
+      <select name="search_type">
+        <option value="web" {% if st == "web" %}selected{% endif %}>Websuche (allgemein)</option>
+        <option value="news" {% if st == "news" %}selected{% endif %}>News-Suche (Aktuelles mit Datum)</option>
+      </select>
+    </label>
+    <label>Ollama-Anweisung (aus Vorlage, editierbar)
+      <textarea name="system_prompt" rows="4">{{ sp }}</textarea>
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>3. Vorschau der Suchanfragen</legend>
+    <ul class="report-list" id="query-preview">
+      {% for q in preview %}
+        <li><span>{{ q }}</span></li>
+      {% endfor %}
+      {% if not preview %}
+        <li><span class="muted">Fülle oben die Felder aus — die Anfragen erscheinen hier live.</span></li>
+      {% endif %}
+    </ul>
+  </fieldset>
+
+  <button type="submit" class="btn btn-primary">Modul anlegen</button>
+</form>
+
+<script>
+(function () {
+  const form = document.getElementById("template-form");
+  const preview = document.getElementById("query-preview");
+  const templates = [
+    {% for q in template.queries %}{{ q | tojson }}{% if not loop.last %},{% endif %}{% endfor %}
+  ];
+  const inputs = {};
+  {% for f in template.fields %}inputs["{{ f.name }}"] = document.getElementById("field_{{ f.name }}");{% endfor %}
+
+  function render() {
+    const values = {};
+    Object.keys(inputs).forEach(function (k) { values[k] = inputs[k].value.trim(); });
+    const out = [];
+    templates.forEach(function (t) {
+      let skip = false;
+      const rendered = t.replace(/\{([a-z_]+)\}/g, function (m, p) {
+        if (!values[p]) { skip = true; }
+        return values[p] || m;
+      });
+      if (!skip && rendered && out.indexOf(rendered) === -1) { out.push(rendered); }
+    });
+    preview.innerHTML = "";
+    if (!out.length) {
+      const li = document.createElement("li");
+      li.innerHTML = '<span class="muted">Fülle oben die Felder aus — die Anfragen erscheinen hier live.</span>';
+      preview.appendChild(li);
+      return;
+    }
+    out.forEach(function (q) {
+      const li = document.createElement("li");
+      const span = document.createElement("span");
+      span.textContent = q;
+      li.appendChild(span);
+      preview.appendChild(li);
+    });
+  }
+  Object.keys(inputs).forEach(function (k) { inputs[k].addEventListener("input", render); });
+  render();
+})();
+</script>
+
+{% endblock %}

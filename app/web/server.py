@@ -30,6 +30,7 @@ from .. import output, pipeline, schedule_units
 from ..budget_tracker import BudgetExceededError, BudgetTracker
 from ..config import load_config
 from ..modules import MODULES
+from ..modules.templates import TEMPLATES, get_template, render_queries
 from ..ollama_client import OllamaError
 from . import config_io
 
@@ -454,6 +455,7 @@ def modules_list(request: Request):
             "builtin_modules": raw_cfg.get("modules", {}),
             "custom_modules": raw_cfg.get("custom_modules", []),
             "schedules": _all_module_schedules(raw_cfg),
+            "templates": TEMPLATES,
         },
     )
 
@@ -496,6 +498,67 @@ def module_edit_form(request: Request, name: str):
         {"module": module, "error": None, "is_edit": True,
          "sched": _schedule_form_defaults(raw_cfg, module)},
     )
+
+
+@app.get("/modules/from-template/{key}", response_class=HTMLResponse)
+def module_from_template_form(request: Request, key: str):
+    """Schritt 1: Vorlage wählen -> nur Region/Stadt/... ausfüllen statt
+    Queries von Hand zu schreiben."""
+    template = get_template(key)
+    if template is None:
+        return PlainTextResponse("Vorlage nicht gefunden.", status_code=404)
+    return templates.TemplateResponse(
+        request,
+        "module_template_form.html",
+        {"template": template, "values": {}, "module_name": template["suggested_name"],
+         "error": None, "preview": []},
+    )
+
+
+@app.post("/modules/from-template/{key}", response_class=HTMLResponse)
+async def module_from_template_save(request: Request, key: str):
+    template = get_template(key)
+    if template is None:
+        return PlainTextResponse("Vorlage nicht gefunden.", status_code=404)
+    form = await request.form()
+    raw_cfg = config_io.load_raw_config(CONFIG_PATH)
+
+    values = {f["name"]: str(form.get(f"field_{f['name']}", "")).strip() for f in template["fields"]}
+    module_name = str(form.get("name", "")).strip() or template["suggested_name"]
+    search_type = "news" if form.get("search_type") == "news" else template["search_type"]
+    system_prompt = str(form.get("system_prompt", "")).strip() or template["system_prompt"]
+
+    def show(error: str, preview: list[str]):
+        return templates.TemplateResponse(
+            request, "module_template_form.html",
+            {"template": template, "values": values, "module_name": module_name,
+             "error": error, "preview": preview,
+             "search_type": search_type, "system_prompt": system_prompt},
+        )
+
+    try:
+        queries = render_queries(template, values)
+    except ValueError as exc:
+        return show(str(exc), [])
+
+    slug = _slugify(module_name)
+    if not module_name:
+        return show("Bitte einen Namen für das Modul angeben.", queries)
+    if slug in RESERVED_MODULE_NAMES:
+        return show(f"Der Name '{slug}' ist reserviert, bitte einen anderen wählen.", queries)
+    if config_io.find_custom_module(raw_cfg, slug) is not None:
+        return show(f"Ein Modul namens '{slug}' existiert bereits.", queries)
+
+    config_io.upsert_custom_module(raw_cfg, {
+        "name": slug,
+        "enabled": "enabled" in form,
+        "search_type": search_type,
+        "queries": queries,
+        "system_prompt": system_prompt,
+    })
+    config_io.save_raw_config(CONFIG_PATH, raw_cfg)
+    logger.info("Modul '%s' aus Vorlage '%s' angelegt (%d Queries)", slug, key, len(queries))
+    return RedirectResponse("/modules", status_code=303)
 
 
 def _module_from_form(form) -> dict[str, Any]:
