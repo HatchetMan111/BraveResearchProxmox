@@ -138,7 +138,8 @@ Eigenes Modul hinzufügen -- drei Wege:
 1. **Aus Vorlage** (empfohlen): unter `/modules` bei „Aus Vorlage anlegen“
    ein Thema wählen (Arbeitsmarkt, Immobilien, Veranstaltungen,
    Kommunalpolitik, Verkehr, Energie, Gesundheit, Bildung, Tourismus,
-   Wirtschaft) – nur Region/Stadt eintragen, Queries und Auswertung kommen
+   Wirtschaft, Abfall, Sport, Vereine, Kultur, Bauen, Landwirtschaft,
+   Steuern) – nur Region/Stadt eintragen, Queries und Auswertung kommen
    aus der Vorlage und bleiben editierbar.
 2. **Ohne Code**: über das Dashboard unter `/modules` -- Name, Suchanfragen
    und Ollama-Anweisung eintragen, läuft ab sofort beim täglichen

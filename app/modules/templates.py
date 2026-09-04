@@ -261,6 +261,188 @@ TEMPLATES: list[dict[str, Any]] = [
             "und Voraussetzungen extra. Sachlich, mit Blick auf lokale Unternehmen."
         ),
     },
+    {
+        "key": "abfall",
+        "title": "Abfall & Entsorgung",
+        "description": "Müllabfuhr-Termine, Wertstoffhof, Sperrmüll und Gebühren vor Ort.",
+        "suggested_name": "abfall",
+        "search_type": "web",
+        "fields": [
+            {"name": "stadt", "label": "Stadt / Ort", "placeholder": "z.B. Musterstadt", "required": True},
+            {"name": "region", "label": "Region / Landkreis", "placeholder": "z.B. Landkreis Musterstadt", "required": False},
+        ],
+        "queries": [
+            "Müllabfuhr Termine {stadt}",
+            "Wertstoffhof {stadt} Öffnungszeiten",
+            "Sperrmüll {stadt} Anmeldung",
+            "Müllgebühren {region}",
+        ],
+        "system_prompt": (
+            "Du erhältst rohe Web-Suchergebnisse zur Abfallentsorgung und erstellst daraus "
+            "eine praktische Entsorgungsübersicht auf Deutsch. Fokus zuerst auf die Stadt "
+            "(konkrete Termine, Adressen, Öffnungszeiten, Anmeldungen), danach ein Ausblick "
+            "auf die Region (Gebühren, Regelungen, Unterschiede). Struktur: 1. Müllabfuhr "
+            "in der Stadt (Termine/Rhythmus mit Markdown-Link [Titel](URL)), 2. Wertstoffhof "
+            "und Sperrmüll (Anfahrt, Zeiten, Anmeldung), 3. Regions-Ausblick (Gebühren, "
+            "Neuerungen). Kurz, konkret, alltagstauglich -- nur belegte Fakten."
+        ),
+    },
+    {
+        "key": "sport",
+        "title": "Sport vor Ort",
+        "description": "Vereine, Ergebnisse und Sportevents in Stadt und Region.",
+        "suggested_name": "sport",
+        "search_type": "news",
+        "fields": [
+            {"name": "stadt", "label": "Stadt / Ort", "placeholder": "z.B. Musterstadt", "required": True},
+            {"name": "region", "label": "Region / Landkreis", "placeholder": "z.B. Landkreis Musterstadt", "required": False},
+        ],
+        "queries": [
+            "Sport {stadt} Ergebnisse",
+            "Sportveranstaltungen {region}",
+            "Sportverein {stadt} Nachrichten",
+        ],
+        "system_prompt": (
+            "Du erhältst rohe News-Suchergebnisse zum lokalen Sport und erstellst daraus "
+            "einen lebendigen Sportüberblick auf Deutsch. Fokus zuerst auf die Stadt "
+            "(Vereine, Ergebnisse, Termine), danach ein Ausblick auf die Region. Struktur: "
+            "1. Überblick (2-3 Sätze: was war los, was steht an?), 2. Ergebnisse und "
+            "Meldungen der Stadt-Vereine mit Markdown-Link [Titel](URL), 3. Sportevents "
+            "und Termine in der Region, 4. Mitmach-Angebote (Probetraining, Anmeldung) "
+            "extra. Schreibe begeistert wie eine lokale Sportseite."
+        ),
+    },
+    {
+        "key": "vereine",
+        "title": "Vereine & Ehrenamt",
+        "description": "Feuerwehr, Sport-, Musikvereine, Mitmachen und Förderung.",
+        "suggested_name": "vereine",
+        "search_type": "web",
+        "fields": [
+            {"name": "stadt", "label": "Stadt / Ort", "placeholder": "z.B. Musterstadt", "required": True},
+            {"name": "region", "label": "Region / Landkreis", "placeholder": "z.B. Landkreis Musterstadt", "required": False},
+        ],
+        "queries": [
+            "Vereine {stadt} Mitmachen",
+            "Ehrenamt {region} Angebote",
+            "Feuerwehr Musikverein {stadt}",
+            "Vereinsförderung {region}",
+        ],
+        "system_prompt": (
+            "Du erhältst rohe Web-Suchergebnisse zu Vereinen und Ehrenamt und erstellst "
+            "daraus einen einladenden Vereinsüberblick auf Deutsch. Fokus zuerst auf die "
+            "Stadt (welche Vereine gibt es, wer sucht Mitglieder?), danach ein Ausblick "
+            "auf die Region. Struktur: 1. Überblick (2-3 Sätze), 2. Vereine der Stadt als "
+            "Liste mit Markdown-Link [Titel](URL), Sparte und Mitmach-Info, 3. Ehrenamts- "
+            "und Förderangebote der Region, 4. Ansprechpartner/Termine extra. Herzlich und "
+            "motivierend, wie ein Vereinsportal."
+        ),
+    },
+    {
+        "key": "kultur",
+        "title": "Kultur & Geschichte",
+        "description": "Museen, Ausstellungen, Denkmäler und Heimatgeschichte.",
+        "suggested_name": "kultur",
+        "search_type": "web",
+        "fields": [
+            {"name": "stadt", "label": "Stadt / Ort", "placeholder": "z.B. Musterstadt", "required": True},
+            {"name": "region", "label": "Region / Landkreis", "placeholder": "z.B. Landkreis Musterstadt", "required": False},
+        ],
+        "queries": [
+            "Museen {stadt}",
+            "Heimatgeschichte {region}",
+            "Denkmäler {stadt}",
+            "Ausstellungen {stadt}",
+        ],
+        "system_prompt": (
+            "Du erhältst rohe Web-Suchergebnisse zu Kultur und Geschichte und erstellst "
+            "daraus einen anschaulichen Kulturüberblick auf Deutsch. Fokus zuerst auf die "
+            "Stadt (Museen, Denkmäler, Ausstellungen), danach ein Ausblick auf die Region "
+            "(Geschichte, Sehenswürdigkeiten, Kulturorte). Struktur: 1. Überblick (2-3 "
+            "Sätze), 2. Kulturorte der Stadt mit Markdown-Link [Titel](URL), Öffnungszeiten "
+            "und Eintritt (falls bekannt), 3. Geschichte und Ausflugsziele der Region. "
+            "Erzählfreudig, wie ein lokaler Kulturführer."
+        ),
+    },
+    {
+        "key": "bauen",
+        "title": "Bauen & Baugebiete",
+        "description": "Baugebiete, Bebauungspläne, Bauplätze und Neubau vor Ort.",
+        "suggested_name": "bauen",
+        "search_type": "web",
+        "fields": [
+            {"name": "stadt", "label": "Stadt / Ort", "placeholder": "z.B. Musterstadt", "required": True},
+            {"name": "region", "label": "Region / Landkreis", "placeholder": "z.B. Landkreis Musterstadt", "required": False},
+        ],
+        "queries": [
+            "Baugebiete {stadt}",
+            "Bebauungspläne {stadt}",
+            "Bauplätze {region}",
+            "Neubau {stadt}",
+        ],
+        "system_prompt": (
+            "Du erhältst rohe Web-Suchergebnisse zu Bauen und Baugebieten und erstellst "
+            "daraus einen ausführlichen Bau-Überblick auf Deutsch (ca. 1 Seite). Fokus "
+            "zuerst auf die Stadt (Baugebiete, Pläne, Neubauvorhaben im Detail), danach "
+            "ein Ausblick auf die Region (Bauplätze, Preise, Entwicklung). Struktur: "
+            "1. Überblick (wo wird gebaut, was ist geplant?), 2. Baugebiete und Vorhaben "
+            "der Stadt mit Markdown-Link [Titel](URL), Stand und Ansprechpartner (falls "
+            "bekannt), 3. Regions-Ausblick (Angebot, Preise, Trend). Sachlich und konkret "
+            "für Bauinteressierte -- nur belegte Fakten."
+        ),
+    },
+    {
+        "key": "landwirtschaft",
+        "title": "Landwirtschaft & Forst",
+        "description": "Ernte, Holzpreise, Jagd, Hofläden und Agrar-Themen der Region.",
+        "suggested_name": "landwirtschaft",
+        "search_type": "web",
+        "fields": [
+            {"name": "region", "label": "Region / Landkreis", "placeholder": "z.B. Landkreis Musterstadt", "required": True},
+            {"name": "stadt", "label": "Stadt / Ort", "placeholder": "z.B. Musterstadt", "required": False},
+        ],
+        "queries": [
+            "Landwirtschaft {region} Ernte",
+            "Holzpreise {region}",
+            "Jagd Forst {region}",
+            "Hofladen {stadt}",
+        ],
+        "system_prompt": (
+            "Du erhältst rohe Web-Suchergebnisse zu Landwirtschaft und Forst und erstellst "
+            "daraus einen bodenständigen Agrar-Überblick auf Deutsch. Fokus zuerst auf den "
+            "eigenen Ort (Hofläden, Betriebe, Termine), danach ein Ausblick auf die Region "
+            "(Ernte, Holzmarkt, Jagd, Wald). Struktur: 1. Überblick (Saison, Wetterfolgen, "
+            "Marktlage in 3-4 Sätzen), 2. Themen der Region mit Markdown-Link [Titel](URL) "
+            "und konkreten Zahlen aus den Daten, 3. Direktvermarkter und Termine vor Ort. "
+            "Sachlich, ohne Fachchinesisch -- nur Zahlen aus den Rohdaten."
+        ),
+    },
+    {
+        "key": "steuern",
+        "title": "Steuern & Verordnungen",
+        "description": "Grundsteuer, Satzungen, neue Pflichten und Fristen der Kommune.",
+        "suggested_name": "steuern",
+        "search_type": "web",
+        "fields": [
+            {"name": "stadt", "label": "Stadt / Gemeinde", "placeholder": "z.B. Musterstadt", "required": True},
+            {"name": "region", "label": "Region / Landkreis", "placeholder": "z.B. Landkreis Musterstadt", "required": False},
+        ],
+        "queries": [
+            "Grundsteuer {stadt} Hebesatz",
+            "Satzungen Verordnungen {stadt}",
+            "Neue Vorschriften {region}",
+        ],
+        "system_prompt": (
+            "Du erhältst rohe Web-Suchergebnisse zu Steuern und Verordnungen und erstellst "
+            "daraus einen verständlichen Bürger-Überblick auf Deutsch. Fokus zuerst auf die "
+            "eigene Stadt/Gemeinde (Hebesätze, Satzungen, Fristen im Detail), danach ein "
+            "Ausblick auf die Region (Unterschiede, Neuerungen). Struktur: 1. Überblick "
+            "(was ändert sich, was ist zu tun?), 2. Regelungen der Stadt mit Markdown-Link "
+            "[Titel](URL), konkreten Sätzen/Fristen und Einordnung (wen betrifft es?), "
+            "3. Regions-Ausblick. Nüchtern und bürgernah -- keine Rechtsberatung, nur "
+            "gefundene Informationen, Fristen extra hervorheben."
+        ),
+    },
 ]
 
 
