@@ -217,3 +217,18 @@ h2 { font-size: 1.1rem; margin: 0 0 14px; }
   font-size: 0.85rem;
   padding: 20px;
 }
+
+.report-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.report-actions .btn { text-decoration: none; color: inherit; }
+
+@media print {
+  .topbar, .footer, .no-print { display: none !important; }
+  body { background: #fff; }
+  .content { max-width: none; padding: 0; }
+  .report-content { border: none; padding: 0; }
+  a { color: #111; }
+}

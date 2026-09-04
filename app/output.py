@@ -3,15 +3,44 @@ optional per E-Mail, falls SMTP-Zugangsdaten konfiguriert sind."""
 
 from __future__ import annotations
 
+import io
 import logging
 import smtplib
 from email.message import EmailMessage
+from html import escape
 from pathlib import Path
+
+import markdown as md_lib
+from xhtml2pdf import pisa
 
 from .config import OutputConfig
 from .pipeline import RunResult
 
 logger = logging.getLogger(__name__)
+
+
+def render_report_pdf(markdown_text: str, title: str = "Report") -> bytes:
+    """Wandelt Report-Markdown in PDF-Bytes um (für Download/Weitergeben).
+    Nutzt bewusst xhtml2pdf: reines Python, keine Systempakete nötig."""
+    body_html = md_lib.markdown(markdown_text)
+    # Einfaches, drucktaugliches Styling (xhtml2pdf versteht nur Basis-CSS).
+    html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+body {{ font-family: Helvetica, Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: #111; }}
+h1 {{ font-size: 18pt; margin-bottom: 6pt; }}
+h2 {{ font-size: 14pt; margin-top: 14pt; }}
+h3 {{ font-size: 12pt; margin-top: 10pt; }}
+a {{ color: #1d4ed8; }}
+blockquote {{ border-left: 3pt solid #ccc; margin-left: 0; padding-left: 8pt; color: #444; }}
+code {{ font-size: 9pt; }}
+li {{ margin-bottom: 3pt; }}
+</style></head><body><h1>{escape(title)}</h1>{body_html}</body></html>"""
+    dest = io.BytesIO()
+    result = pisa.CreatePDF(io.BytesIO(html.encode("utf-8")), dest=dest, encoding="utf-8")
+    if result.err:
+        raise RuntimeError(f"PDF-Erzeugung fehlgeschlagen ({result.err} Fehler).")
+    return dest.getvalue()
 
 
 def _sources_section(result: RunResult) -> str:

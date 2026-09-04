@@ -1,7 +1,11 @@
 {% extends "base.html" %}
 {% block title %}{{ filename }} – Recherche-LXC{% endblock %}
 {% block content %}
-<p><a href="/reports">← Alle Reports</a></p>
+<p class="no-print"><a href="/reports">← Alle Reports</a></p>
+<div class="report-actions no-print">
+  <a href="/reports/{{ filename }}/pdf" class="btn">Als PDF laden</a>
+  <button type="button" class="btn" onclick="window.print()">Drucken</button>
+</div>
 <article class="report-content">
   {{ content_html | safe }}
 </article>

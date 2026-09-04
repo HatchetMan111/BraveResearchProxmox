@@ -6,7 +6,7 @@
 {% if reports %}
   <ul class="report-list">
     {% for r in reports %}
-      <li><a href="/reports/{{ r.name }}">{{ r.name }}</a> <span class="muted">{{ r.mtime.strftime("%d.%m.%Y %H:%M") }}</span></li>
+      <li><a href="/reports/{{ r.name }}">{{ r.name }}</a> <span class="muted">{{ r.mtime.strftime("%d.%m.%Y %H:%M") }} · <a href="/reports/{{ r.name }}/pdf">PDF</a></span></li>
     {% endfor %}
   </ul>
 {% else %}

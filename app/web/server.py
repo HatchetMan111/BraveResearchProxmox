@@ -22,7 +22,7 @@ from typing import Any
 import markdown as md_lib
 import requests
 from fastapi import BackgroundTasks, FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -655,15 +655,44 @@ def reports_list(request: Request):
 @app.get("/reports/{filename}", response_class=HTMLResponse)
 def report_detail(request: Request, filename: str):
     raw_cfg = config_io.load_raw_config(CONFIG_PATH)
-    reports_dir = _reports_dir(raw_cfg)
-    path = (reports_dir / filename).resolve()
-    # Verhindert Pfad-Traversal (z.B. filename=../../etc/passwd)
-    if reports_dir.resolve() not in path.parents or path.suffix != ".md":
-        return PlainTextResponse("Ungültiger Dateiname.", status_code=400)
-    if not path.exists():
-        return PlainTextResponse("Report nicht gefunden.", status_code=404)
+    path, error = _resolve_report_file(raw_cfg, filename)
+    if error is not None:
+        return error
 
     content_html = md_lib.markdown(path.read_text(encoding="utf-8"))
     return templates.TemplateResponse(
         request, "report.html", {"filename": filename, "content_html": content_html}
+    )
+
+
+def _resolve_report_file(raw_cfg: dict[str, Any], filename: str):
+    """Report-Pfad auflösen inkl. Schutz vor Pfad-Traversal.
+    Gibt (path, None) oder (None, Fehler-Response) zurück."""
+    reports_dir = _reports_dir(raw_cfg)
+    path = (reports_dir / filename).resolve()
+    # Verhindert Pfad-Traversal (z.B. filename=../../etc/passwd)
+    if reports_dir.resolve() not in path.parents or path.suffix != ".md":
+        return None, PlainTextResponse("Ungültiger Dateiname.", status_code=400)
+    if not path.exists():
+        return None, PlainTextResponse("Report nicht gefunden.", status_code=404)
+    return path, None
+
+
+@app.get("/reports/{filename}/pdf")
+def report_pdf(filename: str):
+    """Report als PDF-Download (zum Ablegen/Weitergeben)."""
+    raw_cfg = config_io.load_raw_config(CONFIG_PATH)
+    path, error = _resolve_report_file(raw_cfg, filename)
+    if error is not None:
+        return error
+    try:
+        pdf_bytes = output.render_report_pdf(path.read_text(encoding="utf-8"), title=path.stem)
+    except RuntimeError as exc:
+        logger.error("PDF-Erzeugung für %s fehlgeschlagen: %s", filename, exc)
+        return PlainTextResponse("PDF konnte nicht erzeugt werden.", status_code=500)
+    pdf_name = f"{path.stem}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{pdf_name}"'},
     )
