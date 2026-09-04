@@ -15,10 +15,26 @@ Code über das Web-Dashboard** anlegen:
 
 ## 🚀 Schnellinstallation
 
-Container erstellen (siehe Voraussetzungen), dann als root im Container:
+**Auf dem Proxmox-Host als root** – erstellt automatisch einen LXC-Container
+(Debian 12, 1 Core, 1024 MB RAM, 8 GB Disk, DHCP) und installiert alles darin:
 
 ```bash
 bash -c "$(wget -qLO - https://raw.githubusercontent.com/HatchetMan111/BraveResearchProxmox/main/install/research-lxc.sh)"
+```
+
+Anpassen z.B.: `... -- --ctid 101 --hostname research-lxc --storage local-lvm --memory 2048`
+(alle Optionen: `--help`; alternativ per Umgebungsvariablen `RESEARCH_CTID`,
+`RESEARCH_HOSTNAME`, `RESEARCH_STORAGE`, `RESEARCH_CORES`, `RESEARCH_MEMORY`,
+`RESEARCH_DISK`, `RESEARCH_BRIDGE`, `RESEARCH_IP`, `RESEARCH_PASSWORD`).
+
+**Update:** denselben Befehl einfach erneut auf dem Host ausführen – erkennt
+den vorhandenen Container am Hostnamen und aktualisiert nur die App
+(`config.yaml` bleibt erhalten).
+
+**Alternative:** Container manuell erstellen und dann *im Container* als root:
+
+```bash
+bash -c "$(wget -qLO - https://raw.githubusercontent.com/HatchetMan111/BraveResearchProxmox/main/install/research-lxc.sh)" -- --inner
 ```
 
 Das Script installiert alles nicht-interaktiv und startet direkt ein
