@@ -87,8 +87,13 @@ cp "$APP_DIR/deploy/research-lxc-web.service" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now research-lxc-all.timer
 msg_ok "Timer aktiviert (alle aktivierten Module täglich 06:00, siehe Dashboard)"
-systemctl enable --now research-lxc-web.service
-msg_ok "Web-Dashboard gestartet (Port 8000)"
+# WICHTIG: 'enable --now' startet einen bereits laufenden Service NICHT neu
+# (das 'start' darin ist ein No-Op, wenn der Service schon aktiv ist). Ohne
+# expliziten Restart würde das Dashboard nach jedem Update mit dem alten
+# Code im Speicher weiterlaufen -- neue Routen/Features blieben unsichtbar.
+systemctl enable research-lxc-web.service
+systemctl restart research-lxc-web.service
+msg_ok "Web-Dashboard gestartet/aktualisiert (Port 8000)"
 
 IP=$(hostname -I | awk '{print $1}')
 

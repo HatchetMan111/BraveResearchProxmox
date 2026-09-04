@@ -171,6 +171,43 @@ Base-URL in `config.yaml` prüfen, Erreichbarkeit testen:
 curl http://OLLAMA-HOST:11434/api/tags
 ```
 
+Zeigt der Befehl die Modelle korrekt, aber das Dashboard nicht, siehe
+"Neue Funktionen/Fixes nicht sichtbar" unten -- meist läuft dann noch der
+alte Dashboard-Prozess.
+
+### Ollama-Cloud-Modelle (`...-cloud`-Tags)
+
+Über die Ollama-Cloud bezogene Modelle (Tag endet auf `-cloud`, z.B.
+`gemma3:27b-cloud`) tauchen nach `ollama pull` normal in `/api/tags` auf und
+sollten damit auch im Dashboard-Dropdown erscheinen. Bekanntes Ollama-Problem
+(Stand 2026, [ollama/ollama#16314](https://github.com/ollama/ollama/issues/16314)):
+auf manchen Systemen wird beim eigentlichen Generieren (`/api/generate`) das
+`-cloud`-Suffix intern verschluckt, wodurch Ollama das Modell dann nicht mehr
+findet, obwohl es korrekt gelistet wird. Erkennbar am Report-Status "Fehler"
+mit einer Ollama-Fehlermeldung zum Modellnamen. Workaround laut Ollama-Issue:
+auf dem Ollama-Host einen lokalen Alias ohne Sonderzeichen anlegen:
+
+```bash
+echo "FROM gemma3:27b-cloud" > Modelfile
+ollama create gemma3-cloud-alias -f Modelfile
+```
+
+und im Dashboard dann `gemma3-cloud-alias` als Modell eintragen.
+
+### Neue Funktionen/Fixes nicht sichtbar (Dashboard wirkt "alt")
+
+Der Installer aktualisiert bei erneutem Lauf zwar Repo, venv und
+systemd-Units, aber ein bereits laufendes Dashboard wird von
+`systemctl enable --now` **nicht neu gestartet** (das ist ein bekanntes
+systemd-Verhalten: `--now` startet nur, wenn der Service noch nicht läuft).
+Seit dem entsprechenden Fix macht das der Installer automatisch
+(`systemctl restart research-lxc-web.service` bei jedem Lauf) -- bei älteren
+Ständen hilft manuell:
+
+```bash
+systemctl restart research-lxc-web.service
+```
+
 ### Budget dauerhaft erschöpft
 
 `max_requests_per_month` in `config.yaml` senken oder Modul-Queries

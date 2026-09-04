@@ -162,7 +162,7 @@ def api_ollama_models(base_url: str = ""):
     if not url:
         return JSONResponse({"models": [], "error": "Keine Ollama-URL angegeben."})
     try:
-        resp = requests.get(f"{url}/api/tags", timeout=5)
+        resp = requests.get(f"{url}/api/tags", timeout=8)
         resp.raise_for_status()
         data = resp.json()
         models = sorted({m.get("name") for m in data.get("models", []) if m.get("name")})
