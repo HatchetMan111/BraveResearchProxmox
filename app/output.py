@@ -4,6 +4,7 @@ optional per E-Mail, falls SMTP-Zugangsdaten konfiguriert sind."""
 from __future__ import annotations
 
 import io
+import json
 import logging
 import smtplib
 from email.message import EmailMessage
@@ -125,7 +126,33 @@ Gespeichert lokal unter: `{path.name}` (Ordner `{reports_dir.name}/`)
 """
     path.write_text(content, encoding="utf-8")
     logger.info("Report geschrieben: %s", path)
+
+    # Strukturierte Quellen als Sidecar (für Nachfragen ohne neuen Brave-Lauf
+    # und künftige Auswertungen). Alte Reports ohne Sidecar funktionieren
+    # weiter -- dann dient der reine Report-Text als Kontext.
+    try:
+        sidecar = {
+            "module": result.module_name,
+            "started_at": result.started_at.isoformat(),
+            "queries_run": result.queries_run,
+            "queries_planned": result.queries_planned,
+            "budget_exhausted": result.budget_exhausted,
+            "sources": getattr(result, "sources", []) or [],
+        }
+        sidecar_path = path.with_name(f"{path.stem}.sources.json")
+        sidecar_path.write_text(json.dumps(sidecar, ensure_ascii=False, indent=1), encoding="utf-8")
+    except OSError:
+        logger.exception("Quellen-Sidecar konnte nicht geschrieben werden")
     return path
+
+
+def load_sources_sidecar(reports_dir: str | Path, filename: str) -> dict | None:
+    """Lädt das Quellen-Sidecar zu einem Report (None bei alten Reports)."""
+    sidecar_path = Path(reports_dir) / f"{Path(filename).stem}.sources.json"
+    try:
+        return json.loads(sidecar_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
 
 
 def send_report_email(result: RunResult, report_path: Path, output_cfg: OutputConfig) -> bool:

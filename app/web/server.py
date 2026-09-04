@@ -31,7 +31,7 @@ from ..budget_tracker import BudgetExceededError, BudgetTracker
 from ..config import load_config
 from ..modules import MODULES
 from ..modules.templates import TEMPLATES, get_template, render_queries
-from ..ollama_client import OllamaError
+from ..ollama_client import OllamaClient, OllamaError
 from . import config_io
 
 logger = logging.getLogger(__name__)
@@ -645,11 +645,43 @@ def module_delete(name: str):
 
 
 @app.get("/reports", response_class=HTMLResponse)
-def reports_list(request: Request):
+def reports_list(request: Request, q: str = ""):
     raw_cfg = config_io.load_raw_config(CONFIG_PATH)
+    query = (q or "").strip()
+    reports = _list_reports(raw_cfg)
+    results: list[dict[str, Any]] | None = None
+    if query:
+        results = _search_reports(_reports_dir(raw_cfg), reports, query)
     return templates.TemplateResponse(
-        request, "reports.html", {"reports": _list_reports(raw_cfg)}
+        request, "reports.html", {"reports": reports, "query": query, "results": results}
     )
+
+
+def _search_reports(
+    reports_dir: Path, reports_meta: list[dict[str, Any]], query: str, limit_files: int = 200
+) -> list[dict[str, Any]]:
+    """Volltextsuche über Report-Dateien (neueste zuerst, Dateinamen-Treffer
+    vorne). Gibt Treffer mit Textausschnitt zurück."""
+    q = query.lower()
+    hits: list[dict[str, Any]] = []
+    for meta in reports_meta[:limit_files]:
+        try:
+            text = (reports_dir / meta["name"]).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        idx = text.lower().find(q)
+        name_hit = q in meta["name"].lower()
+        if idx == -1 and not name_hit:
+            continue
+        if idx == -1:
+            excerpt = " ".join(text[:200].split())
+        else:
+            start = max(0, idx - 100)
+            snippet = " ".join(text[start : idx + 100].split())
+            excerpt = ("…" if start > 0 else "") + snippet + "…"
+        hits.append({**meta, "excerpt": excerpt, "name_hit": name_hit})
+    hits.sort(key=lambda h: not h["name_hit"])  # stabil: Dateinamen-Treffer zuerst
+    return [{k: v for k, v in h.items() if k != "name_hit"} for h in hits]
 
 
 @app.get("/reports/{filename}", response_class=HTMLResponse)
@@ -661,7 +693,10 @@ def report_detail(request: Request, filename: str):
 
     content_html = md_lib.markdown(path.read_text(encoding="utf-8"))
     return templates.TemplateResponse(
-        request, "report.html", {"filename": filename, "content_html": content_html}
+        request, "report.html", {"filename": filename, "content_html": content_html,
+                                 "question": "", "answer_html": None, "ask_error": None,
+                                 "source_count": len(
+                                     (output.load_sources_sidecar(_reports_dir(raw_cfg), filename) or {}).get("sources", []) or [])}
     )
 
 
@@ -696,3 +731,91 @@ def report_pdf(filename: str):
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{pdf_name}"'},
     )
+
+
+MAX_FOLLOWUP_SOURCES = 50
+MAX_FOLLOWUP_REPORT_CHARS = 12000
+
+
+def build_followup_prompt(
+    question: str, report_md: str, sidecar: dict[str, Any] | None
+) -> tuple[str, str]:
+    """Baut den Nachfrage-Prompt aus Report-Text + gespeicherten Quellen.
+    Rein lokal (Ollama), kein Brave-Lauf, kein Budget-Verbrauch."""
+    sources = ((sidecar or {}).get("sources", []) or [])[:MAX_FOLLOWUP_SOURCES]
+    if sources:
+        lines = []
+        for s in sources:
+            age = f" ({s.get('age')})" if s.get("age") else ""
+            snippet = (s.get("snippet") or "")[:500]
+            lines.append(
+                f"- {s.get('title') or s.get('url', '')}{age} "
+                f"({s.get('url', '')}): {snippet}"
+            )
+        src_block = "\n".join(lines)
+        src_note = f"{len(sources)} gespeicherte Quellen"
+    else:
+        src_block = "(keine strukturierten Quellen vorhanden -- nur Report-Text)"
+        src_note = "nur Report-Text (alter Report ohne Quellen-Sidecar)"
+    system = (
+        "Du beantwortest eine Nachfrage zu einem vorliegenden Recherche-Report. "
+        "Nutze AUSSCHLIESSLICH den Report-Text und die gespeicherten Quellen unten -- "
+        "keine neuen Recherchen, keine erfundenen Fakten. Wenn die Antwort nicht in "
+        "den Daten steht, sage das ehrlich und schlage ggf. eine neue Suche vor. "
+        "Belege Aussagen mit Markdown-Links [Titel](URL). Antworte auf Deutsch, "
+        "kurz und konkret."
+    )
+    user = (
+        f"Frage: {question}\n\n"
+        f"Report-Text:\n{report_md[:MAX_FOLLOWUP_REPORT_CHARS]}\n\n"
+        f"Gespeicherte Quellen ({src_note}):\n{src_block}"
+    )
+    return system, user
+
+
+@app.post("/reports/{filename}/ask", response_class=HTMLResponse)
+async def report_ask(request: Request, filename: str):
+    """Nachfrage zum Report beantworten -- nur Ollama + gespeicherte Daten,
+    bewusst OHNE Brave-Lauf (verbraucht kein Budget). Braucht nicht einmal
+    einen Brave API Key, nur Ollama-Einstellungen."""
+    raw_cfg = config_io.load_raw_config(CONFIG_PATH)
+    path, error = _resolve_report_file(raw_cfg, filename)
+    if error is not None:
+        return error
+
+    form = await request.form()
+    question = str(form.get("question", "")).strip()
+    md_text = path.read_text(encoding="utf-8")
+    content_html = md_lib.markdown(md_text)
+
+    def show(answer_html=None, ask_error=None):
+        sidecar = output.load_sources_sidecar(_reports_dir(raw_cfg), filename)
+        return templates.TemplateResponse(
+            request, "report.html",
+            {"filename": filename, "content_html": content_html,
+             "question": question, "answer_html": answer_html,
+             "ask_error": ask_error,
+             "source_count": len((sidecar or {}).get("sources", []) or [])},
+        )
+
+    if not question:
+        return show(ask_error="Bitte eine Frage eingeben.")
+
+    ollama_cfg = raw_cfg.get("ollama", {}) or {}
+    base_url = str(ollama_cfg.get("base_url", "") or "").strip()
+    model = str(ollama_cfg.get("model", "") or "").strip()
+    if not base_url or not model:
+        return show(ask_error="Kein Ollama-Modell konfiguriert -- erst unter Einstellungen wählen und speichern.")
+    try:
+        timeout = int(ollama_cfg.get("timeout_seconds", 180) or 180)
+    except (TypeError, ValueError):
+        timeout = 180
+
+    sidecar = output.load_sources_sidecar(_reports_dir(raw_cfg), filename)
+    system, user = build_followup_prompt(question, md_text, sidecar)
+    try:
+        answer_md = OllamaClient(base_url, model, timeout).generate(user, system=system)
+    except OllamaError as exc:
+        logger.error("Nachfrage zu %s fehlgeschlagen: %s", filename, exc)
+        return show(ask_error=str(exc))
+    return show(answer_html=md_lib.markdown(answer_md))

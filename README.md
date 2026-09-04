@@ -63,7 +63,10 @@ Script die passende URL (`http://<Container-IP>:8000`) direkt an.
   Report deutlich als unvollständig
 - ✅ **Modular** – neue Recherche-Themen als eigenes Modul über das Dashboard
   anlegen (kein Code nötig) oder als Python-Datei unter `app/modules/`
-- ✅ **Reports als Markdown**, optional zusätzlich per E-Mail (SMTP)
+- ✅ **Reports als Markdown + PDF**, optional zusätzlich per E-Mail (SMTP)
+- ✅ **Nachfragen zum Report** – Folgefragen werden nur aus Report-Text und
+  gespeicherten Quellen beantwortet, ohne neuen Brave-Lauf (kein Budget-Verbrauch)
+- ✅ **Volltextsuche** über alle Reports auf der Reports-Seite
 - ✅ **Web-Dashboard** – Konfiguration per Browser-Formular, Reports ansehen,
   Läufe manuell anstoßen, Budget-Stand auf einen Blick (kein SSH nötig)
 - ✅ **Ollama-Modell-Auswahl** – Dashboard fragt die auf der Ollama-Instanz
@@ -179,7 +182,7 @@ Nach der Installation erreichbar unter `http://<Container-IP>:8000`
 | `/`           | Budget-Stand, Modul-Status, "Jetzt ausführen"-Button, letzte Reports |
 | `/settings`   | Allgemeine Konfiguration + die beiden eingebauten Module        |
 | `/modules`    | Eigene Module anlegen/bearbeiten/löschen, ganz ohne Code        |
-| `/reports`    | Alle bisherigen Reports, als Markdown gerendert                |
+| `/reports`    | Alle bisherigen Reports, als Markdown gerendert, mit Volltextsuche, PDF-Download und Nachfrage-Funktion |
 
 Änderungen unter `/settings` werden direkt in `config.yaml` geschrieben und
 gelten sofort für den nächsten Timer- oder manuellen Lauf – kein Neustart

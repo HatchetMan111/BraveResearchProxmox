@@ -3,7 +3,36 @@
 {% block content %}
 <h1>Alle Reports</h1>
 <p class="muted">Alle Reports liegen <strong>lokal</strong> im Ordner <code>reports/</code> auf dem LXC und bleiben dort zum Nachlesen — klicke einen Report zum Ansehen.</p>
-{% if reports %}
+
+<form method="get" action="/reports" class="settings-form" style="margin-bottom:18px;">
+  <div class="model-row">
+    <div>
+      <label>Volltextsuche über alle Reports
+        <input type="text" name="q" value="{{ query or '' }}" placeholder="z.B. Müllgebühren, Baugebiet, …">
+      </label>
+    </div>
+    <button type="submit" class="btn">Suchen</button>
+  </div>
+</form>
+
+{% if query is not none and query != "" %}
+  <h2>{{ results | length }} Treffer für „{{ query }}“</h2>
+  {% if results %}
+    <ul class="report-list">
+      {% for r in results %}
+        <li>
+          <div>
+            <a href="/reports/{{ r.name }}">{{ r.name }}</a>
+            <br><span class="muted">{{ r.excerpt }}</span>
+          </div>
+          <span class="muted">{{ r.mtime.strftime("%d.%m.%Y %H:%M") }} · <a href="/reports/{{ r.name }}/pdf">PDF</a></span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">Nichts gefunden — anderen Begriff versuchen oder <a href="/reports">alle Reports</a> ansehen.</p>
+  {% endif %}
+{% elif reports %}
   <ul class="report-list">
     {% for r in reports %}
       <li><a href="/reports/{{ r.name }}">{{ r.name }}</a> <span class="muted">{{ r.mtime.strftime("%d.%m.%Y %H:%M") }} · <a href="/reports/{{ r.name }}/pdf">PDF</a></span></li>

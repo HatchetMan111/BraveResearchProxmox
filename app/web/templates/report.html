@@ -9,4 +9,24 @@
 <article class="report-content">
   {{ content_html | safe }}
 </article>
+
+<section class="card no-print" style="margin-top:20px;">
+  <h2>Nachfrage stellen</h2>
+  <p class="muted">Folgefrage zu diesem Report — wird nur aus Report-Text und
+  {{ source_count }} gespeicherten Quellen beantwortet, <strong>ohne neuen
+  Brave-Lauf (kein Budget-Verbrauch)</strong>.</p>
+  {% if ask_error %}<div class="banner banner-error">{{ ask_error }}</div>{% endif %}
+  <form method="post" action="/reports/{{ filename }}/ask" class="settings-form">
+    <label>Deine Frage
+      <input type="text" name="question" value="{{ question or '' }}"
+             placeholder="z.B. Und was kostet das in Musterstadt?" required>
+    </label>
+    <button type="submit" class="btn btn-primary">Fragen (kein Budget-Verbrauch)</button>
+  </form>
+  {% if answer_html %}
+    <h2>Antwort</h2>
+    <div class="banner banner-ok">Aus gespeicherten Daten beantwortet — ohne neue Suche.</div>
+    <article class="report-content">{{ answer_html | safe }}</article>
+  {% endif %}
+</section>
 {% endblock %}
