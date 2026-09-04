@@ -511,7 +511,7 @@ def module_from_template_form(request: Request, key: str):
         request,
         "module_template_form.html",
         {"template": template, "values": {}, "module_name": template["suggested_name"],
-         "error": None, "preview": []},
+         "error": None, "queries_text": "", "queries_touched": False},
     )
 
 
@@ -528,26 +528,35 @@ async def module_from_template_save(request: Request, key: str):
     search_type = "news" if form.get("search_type") == "news" else template["search_type"]
     system_prompt = str(form.get("system_prompt", "")).strip() or template["system_prompt"]
 
-    def show(error: str, preview: list[str]):
+    def show(error: str, queries_text: str, touched: bool):
         return templates.TemplateResponse(
             request, "module_template_form.html",
             {"template": template, "values": values, "module_name": module_name,
-             "error": error, "preview": preview,
+             "error": error, "queries_text": queries_text, "queries_touched": touched,
              "search_type": search_type, "system_prompt": system_prompt},
         )
 
-    try:
-        queries = render_queries(template, values)
-    except ValueError as exc:
-        return show(str(exc), [])
+    # Manuell erweiterte Vorschau gewinnt; sonst aus der Vorlage rendern.
+    touched = str(form.get("queries_touched", "")).strip() == "1"
+    submitted = [line.strip() for line in str(form.get("queries", "")).splitlines()]
+    submitted = [q for q in dict.fromkeys(submitted) if q]  # entleeren + dedupe
+    if touched:
+        if not submitted:
+            return show("Bitte mindestens eine Suchanfrage angeben (oder auf Vorlage zurücksetzen).", "", True)
+        queries = submitted
+    else:
+        try:
+            queries = render_queries(template, values)
+        except ValueError as exc:
+            return show(str(exc), "", False)
 
     slug = _slugify(module_name)
     if not module_name:
-        return show("Bitte einen Namen für das Modul angeben.", queries)
+        return show("Bitte einen Namen für das Modul angeben.", "\n".join(queries), touched)
     if slug in RESERVED_MODULE_NAMES:
-        return show(f"Der Name '{slug}' ist reserviert, bitte einen anderen wählen.", queries)
+        return show(f"Der Name '{slug}' ist reserviert, bitte einen anderen wählen.", "\n".join(queries), touched)
     if config_io.find_custom_module(raw_cfg, slug) is not None:
-        return show(f"Ein Modul namens '{slug}' existiert bereits.", queries)
+        return show(f"Ein Modul namens '{slug}' existiert bereits.", "\n".join(queries), touched)
 
     config_io.upsert_custom_module(raw_cfg, {
         "name": slug,

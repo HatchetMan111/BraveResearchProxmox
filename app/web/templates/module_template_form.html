@@ -44,15 +44,16 @@
   </fieldset>
 
   <fieldset>
-    <legend>3. Vorschau der Suchanfragen</legend>
-    <ul class="report-list" id="query-preview">
-      {% for q in preview %}
-        <li><span>{{ q }}</span></li>
-      {% endfor %}
-      {% if not preview %}
-        <li><span class="muted">Fülle oben die Felder aus — die Anfragen erscheinen hier live.</span></li>
-      {% endif %}
-    </ul>
+    <legend>3. Suchanfragen (Vorschau, frei erweiterbar)</legend>
+    <p class="hint">Wird automatisch aus deinen Angaben erzeugt — <strong>einfach dazu schreiben, ändern oder löschen</strong> (eine pro Zeile). Eigene Zeilen bleiben erhalten.
+    <span id="queries-mode" class="muted">Modus: automatisch</span></p>
+    <label>Suchanfragen (eine pro Zeile)
+      <textarea name="queries" id="queries" rows="5">{{ queries_text }}</textarea>
+    </label>
+    <input type="hidden" name="queries_touched" id="queries_touched" value="{{ '1' if queries_touched else '' }}">
+    <div class="model-row">
+      <button type="button" class="btn" id="queries-reset" style="display:none">Auf Vorlage zurücksetzen</button>
+    </div>
   </fieldset>
 
   <button type="submit" class="btn btn-primary">Modul anlegen</button>
@@ -60,15 +61,17 @@
 
 <script>
 (function () {
-  const form = document.getElementById("template-form");
-  const preview = document.getElementById("query-preview");
+  const queriesInput = document.getElementById("queries");
+  const touchedInput = document.getElementById("queries_touched");
+  const modeEl = document.getElementById("queries-mode");
+  const resetBtn = document.getElementById("queries-reset");
   const templates = [
     {% for q in template.queries %}{{ q | tojson }}{% if not loop.last %},{% endif %}{% endfor %}
   ];
   const inputs = {};
   {% for f in template.fields %}inputs["{{ f.name }}"] = document.getElementById("field_{{ f.name }}");{% endfor %}
 
-  function render() {
+  function renderQueries() {
     const values = {};
     Object.keys(inputs).forEach(function (k) { values[k] = inputs[k].value.trim(); });
     const out = [];
@@ -78,25 +81,32 @@
         if (!values[p]) { skip = true; }
         return values[p] || m;
       });
-      if (!skip && rendered && out.indexOf(rendered) === -1) { out.push(rendered); }
+      const clean = rendered.replace(/\s+/g, " ").trim();
+      if (!skip && clean && out.indexOf(clean) === -1) { out.push(clean); }
     });
-    preview.innerHTML = "";
-    if (!out.length) {
-      const li = document.createElement("li");
-      li.innerHTML = '<span class="muted">Fülle oben die Felder aus — die Anfragen erscheinen hier live.</span>';
-      preview.appendChild(li);
-      return;
-    }
-    out.forEach(function (q) {
-      const li = document.createElement("li");
-      const span = document.createElement("span");
-      span.textContent = q;
-      li.appendChild(span);
-      preview.appendChild(li);
-    });
+    return out;
   }
-  Object.keys(inputs).forEach(function (k) { inputs[k].addEventListener("input", render); });
-  render();
+
+  function setManual(manual) {
+    touchedInput.value = manual ? "1" : "";
+    modeEl.textContent = manual ? "Modus: manuell bearbeitet" : "Modus: automatisch";
+    resetBtn.style.display = manual ? "" : "none";
+  }
+
+  function autoFill() {
+    if (touchedInput.value) { return; }  // manuelle Eingabe nicht überschreiben
+    queriesInput.value = renderQueries().join("\n");
+  }
+
+  Object.keys(inputs).forEach(function (k) { inputs[k].addEventListener("input", autoFill); });
+  queriesInput.addEventListener("input", function () { setManual(true); });
+  resetBtn.addEventListener("click", function () {
+    setManual(false);
+    queriesInput.value = renderQueries().join("\n");
+    queriesInput.focus();
+  });
+  setManual(!!touchedInput.value);
+  autoFill();  // initiale Befüllung (Server liefert bewusst keinen Text mit)
 })();
 </script>
 

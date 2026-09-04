@@ -95,7 +95,9 @@ def test_template_form_renders_fields(client):
     resp = test_client.get("/modules/from-template/job_markt")
     assert resp.status_code == 200
     assert "Region / Landkreis" in resp.text
-    assert "Stellenangebote" in resp.text or "query-preview" in resp.text
+    assert 'name="queries"' in resp.text
+    assert "queries-reset" in resp.text
+    assert "frei erweiterbar" in resp.text
 
 
 def test_create_module_from_template(client):
@@ -135,6 +137,48 @@ def test_create_from_template_duplicate_name_shows_error(client):
     resp = test_client.post("/modules/from-template/immobilien", data={
         "name": "doppelt", "field_region": "R", "field_stadt": "S"})
     assert "existiert bereits" in resp.text
+
+
+def test_create_from_template_with_extended_queries(client):
+    """Manuell erweiterte Vorschau gewinnt über das Vorlagen-Rendering."""
+    test_client, _, config_path = client
+    resp = test_client.post("/modules/from-template/job_markt", data={
+        "name": "Stellenmarkt", "enabled": "on",
+        "field_region": "Musterregion", "field_stadt": "",
+        "queries": "Stellenangebote Musterregion\nEigene Zusatzanfrage Musterregion\nStellenangebote Musterregion",
+        "queries_touched": "1",
+    }, follow_redirects=False)
+    assert resp.status_code == 303
+
+    from app.web import config_io
+
+    cm = config_io.find_custom_module(config_io.load_raw_config(config_path), "stellenmarkt")
+    assert cm["queries"] == ["Stellenangebote Musterregion", "Eigene Zusatzanfrage Musterregion"]
+
+
+def test_create_from_template_touched_but_empty_shows_error(client):
+    test_client, _, _ = client
+    resp = test_client.post("/modules/from-template/job_markt", data={
+        "name": "Stellenmarkt", "field_region": "Musterregion",
+        "queries": "   \n  ", "queries_touched": "1",
+    })
+    assert resp.status_code == 200
+    assert "mindestens eine Suchanfrage" in resp.text
+
+
+def test_create_from_template_untouched_ignores_textarea(client):
+    """Ohne JS (kein touched-Flag) wird aus den Feldern gerendert."""
+    test_client, _, config_path = client
+    resp = test_client.post("/modules/from-template/job_markt", data={
+        "name": "Stellenmarkt", "field_region": "Musterregion", "field_stadt": "",
+        "queries": "",
+    }, follow_redirects=False)
+    assert resp.status_code == 303
+
+    from app.web import config_io
+
+    cm = config_io.find_custom_module(config_io.load_raw_config(config_path), "stellenmarkt")
+    assert any("Musterregion" in q for q in cm["queries"])
 
 
 def test_created_template_module_runs_through_pipeline(client, monkeypatch):
