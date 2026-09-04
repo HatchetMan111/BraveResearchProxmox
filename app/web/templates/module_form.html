@@ -16,6 +16,7 @@
     <li><strong>Suchanfragen (Pflicht, eine pro Zeile):</strong> 2–5 breite Anfragen genügen — die Feinarbeit macht Ollama. Beispiel:
       <br><code>Musterverein Region XY<br>Vereinsheim Neuigkeiten Region XY<br>Förderprogramme Vereine 2026</code></li>
     <li><strong>Ollama-Anweisung (optional):</strong> Steuert, wie der Report aufbereitet wird (Stil, Struktur, Schwerpunkt). Leer lassen = neutrale Standard-Zusammenfassung mit Quellen-Links. Beispiel: <code>Schreibe im Stil einer Vereinszeitung: kurze Sätze, freundlich, Termine fett hervorheben.</code></li>
+    <li><strong>Zeitplan:</strong> Standard ist der globale Zeitplan aus den Einstellungen. Mit „Eigener Zeitplan“ läuft genau dieses Modul täglich/wöchentlich zu seiner Uhrzeit — oder nur manuell, wenn „Automatisch laufen“ aus ist.</li>
   </ol>
   <p class="muted">Ablauf nach dem Speichern: Brave Search liefert Rohdaten (kostet Budget) → Ollama fasst lokal ausführlich mit Quellen-Links zusammen → Report landet lokal unter <code>reports/</code> und erscheint auf dem Dashboard.</p>
 </div>
@@ -58,6 +59,50 @@
       <textarea name="system_prompt" rows="4" placeholder="Leer lassen für eine neutrale Standard-Zusammenfassung mit Quellen-Links. Beispiel: Schreibe im Stil einer Vereinszeitung: kurze Sätze, freundlich, Termine fett.">{% if module %}{{ module.get("system_prompt", "") }}{% endif %}</textarea>
     </label>
     <p class="hint">Hier Stil, Struktur und Schwerpunkt vorgeben. Quellen-Links baut Ollama automatisch ein — dafür musst du nichts tun.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>4. Zeitplan (automatisch oder nur manuell)</legend>
+    <p class="hint">Standard für dieses Modul: globaler Zeitplan aus den Einstellungen (derzeit: {{ sched.global_human }}). Mit eigenem Zeitplan läuft genau dieses Modul zu seiner Zeit — als eigener System-Timer.</p>
+    <label class="checkbox-label">
+      <input type="checkbox" name="schedule_custom" {% if sched.custom %}checked{% endif %}>
+      Eigener Zeitplan für dieses Modul (statt Standard)
+    </label>
+    <div class="model-row">
+      <div>
+        <label class="checkbox-label">
+          <input type="checkbox" name="schedule_enabled" {% if sched.enabled %}checked{% endif %}>
+          Automatisch laufen (sonst nur manuell über Dashboard)
+        </label>
+      </div>
+      <div>
+        <label>Uhrzeit
+          <input type="time" name="schedule_time" value="{{ sched.time }}">
+        </label>
+      </div>
+      <div>
+        <label>Häufigkeit
+          <select name="schedule_frequency">
+            <option value="daily" {% if sched.frequency == "daily" %}selected{% endif %}>Täglich</option>
+            <option value="weekly" {% if sched.frequency == "weekly" %}selected{% endif %}>Wöchentlich</option>
+          </select>
+        </label>
+      </div>
+      <div>
+        <label>Wochentag (nur wöchentlich)
+          <select name="schedule_weekday">
+            <option value="mon" {% if sched.weekday == "mon" %}selected{% endif %}>Montag</option>
+            <option value="tue" {% if sched.weekday == "tue" %}selected{% endif %}>Dienstag</option>
+            <option value="wed" {% if sched.weekday == "wed" %}selected{% endif %}>Mittwoch</option>
+            <option value="thu" {% if sched.weekday == "thu" %}selected{% endif %}>Donnerstag</option>
+            <option value="fri" {% if sched.weekday == "fri" %}selected{% endif %}>Freitag</option>
+            <option value="sat" {% if sched.weekday == "sat" %}selected{% endif %}>Samstag</option>
+            <option value="sun" {% if sched.weekday == "sun" %}selected{% endif %}>Sonntag</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <p class="hint">Der Zeitplan wirkt erst, nachdem die Timer angelegt wurden: Installer erneut laufen lassen oder als root <code>python -m app.schedule_units --apply</code> im App-Ordner.</p>
   </fieldset>
 
   <button type="submit" class="btn btn-primary">{% if is_edit %}Speichern{% else %}Modul anlegen{% endif %}</button>

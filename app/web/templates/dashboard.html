@@ -41,6 +41,8 @@
         {% elif name == "news_digest" %}
           <p class="muted">{{ mod_cfg.get("region") or "–" }} · {{ mod_cfg.get("themen", []) | join(", ") or "–" }}</p>
         {% endif %}
+        {% set s = schedules.get(name) %}
+        {% if s %}<p class="muted">Zeitplan: {{ s.human }}</p>{% endif %}
 
         {% if status.status == "running" %}
           <p class="status status-running">läuft{% if status.started_str %} seit {{ status.started_str }}{% endif %}{% if status.elapsed_str %} (seit {{ status.elapsed_str }}){% endif %} …</p>
@@ -72,6 +74,8 @@
           {% if not cm.get("enabled", True) %}<span class="badge badge-off">deaktiviert</span>{% endif %}
         </div>
         <p class="muted">{{ cm.get("search_type", "web") }} · {{ cm.get("queries", []) | length }} Suchanfrage(n)</p>
+        {% set s = schedules.get(cm.name) %}
+        {% if s %}<p class="muted">Zeitplan: {{ s.human }}</p>{% endif %}
 
         {% if status.status == "running" %}
           <p class="status status-running">läuft{% if status.started_str %} seit {{ status.started_str }}{% endif %}{% if status.elapsed_str %} (seit {{ status.elapsed_str }}){% endif %} …</p>
@@ -103,15 +107,18 @@
 
 <section class="card">
   <h2>Zeitplan (automatische Läufe)</h2>
-  {% if schedule.enabled %}
-    <p>Automatische Läufe: <strong>{{ schedule.human }}</strong> — alle aktivierten Module.</p>
-  {% else %}
-    <p class="muted">Automatische Läufe sind <strong>deaktiviert</strong> — Läufe nur manuell über „Jetzt ausführen“. Umstellen unter <a href="/settings">Einstellungen → Zeitplan</a>.</p>
-  {% endif %}
+  <ul class="report-list">
+    {% for mod_name, s in schedules.items() %}
+      <li><span>{{ mod_name }}</span> <span class="muted">{{ s.human }}</span></li>
+    {% endfor %}
+  </ul>
+  <p class="muted">Anpassen pro Modul unter <a href="/settings">Einstellungen</a> bzw. <a href="/modules">Module</a>. Danach Timer anlegen: Installer erneut laufen lassen oder als root <code>python -m app.schedule_units --apply</code> im App-Ordner.
   {% if timer.active %}
-    <p class="muted">System-Timer aktiv{% if timer.next %} — nächster Lauf: {{ timer.next }}{% endif %}. Ändern unter <a href="/settings">Einstellungen → Zeitplan</a> (danach Timer per SSH anpassen, Anleitung steht dort).</p>
+    System-Timer aktiv{% if timer.count %} ({{ timer.count }} Modul-Timer){% endif %}{% if timer.next %} — nächster Lauf: {{ timer.next }}{% endif %}.</p>
   {% elif timer.active == False %}
-    <p class="muted">System-Timer derzeit nicht aktiv ({{ timer.detail }}). Manuelle Läufe funktionieren trotzdem.</p>
+    System-Timer derzeit nicht aktiv ({{ timer.detail }}). Manuelle Läufe funktionieren trotzdem.</p>
+  {% else %}
+    Timer-Status: {{ timer.detail }}</p>
   {% endif %}
 </section>
 

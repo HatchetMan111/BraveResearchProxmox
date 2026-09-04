@@ -26,7 +26,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Red
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from .. import output, pipeline
+from .. import output, pipeline, schedule_units
 from ..budget_tracker import BudgetExceededError, BudgetTracker
 from ..config import load_config
 from ..modules import MODULES
@@ -150,20 +150,60 @@ def _schedule_info(raw_cfg: dict[str, Any]) -> dict[str, Any]:
 
 
 def _timer_status() -> dict[str, Any]:
-    """Liest den echten systemd-Timer-Status (fail-safe: None bei Fehler,
-    z.B. wenn das Dashboard nicht unter systemd läuft)."""
+    """Status der Recherche-Timer: pro-Modul-Timer (research-lxc-mod-*.timer)
+    oder als Rückfall der Sammel-Timer. Fail-safe: None bei Fehler."""
     try:
         out = subprocess.run(
-            ["systemctl", "list-timers", "research-lxc-all.timer", "--no-pager", "--no-legend"],
+            ["systemctl", "list-timers", "research-lxc-*", "--no-pager", "--no-legend"],
             capture_output=True, text=True, timeout=5,
         )
-        text = (out.stdout or "").strip()
-        if text and "research-lxc-all.timer" in text:
-            parts = text.split()
-            return {"active": True, "detail": text, "next": parts[0] if parts else ""}
-        return {"active": False, "detail": "Timer nicht aktiv.", "next": ""}
+        lines = [l.strip() for l in (out.stdout or "").splitlines() if "research-lxc" in l]
+        mod = [l for l in lines if "research-lxc-mod-" in l]
+        if mod:
+            nxt = mod[0].split()[0] if mod[0].split() else ""
+            return {
+                "active": True,
+                "count": len(mod),
+                "detail": f"{len(mod)} Modul-Timer aktiv.",
+                "next": nxt,
+            }
+        all_t = [l for l in lines if "research-lxc-all.timer" in l]
+        if all_t:
+            nxt = all_t[0].split()[0] if all_t[0].split() else ""
+            return {"active": True, "count": 0, "detail": "Sammel-Timer aktiv.", "next": nxt}
+        return {"active": False, "count": 0, "detail": "Kein Timer aktiv.", "next": ""}
     except Exception:
-        return {"active": None, "detail": "Timer-Status nicht abfragbar.", "next": ""}
+        return {"active": None, "count": 0, "detail": "Timer-Status nicht abfragbar.", "next": ""}
+
+
+def _all_module_schedules(raw_cfg: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Effektiver Zeitplan je Modul (eingebaut + eigene) fürs Dashboard."""
+    return {
+        name: schedule_units.effective_schedule(raw_cfg, cfg)
+        for name, cfg in schedule_units.iter_modules(raw_cfg)
+    }
+
+
+def _parse_schedule_fields(form, prefix: str = "") -> dict[str, Any] | None:
+    """Liest Zeitplan-Felder aus dem Formular (Prefix z.B. 'competitor_',
+    '' für eigene Module). Gibt None zurück, wenn das Formular gar keine
+    Zeitplan-Felder enthält (alte Posts/Tests bleiben unberührt)."""
+    if f"{prefix}schedule_time" not in form:
+        return None
+
+    def get(name: str, default: str = "") -> str:
+        return str(form.get(name, default)).strip()
+
+    time = get(f"{prefix}schedule_time", "06:00")
+    freq = get(f"{prefix}schedule_frequency", "daily").lower()
+    day = get(f"{prefix}schedule_weekday", "mon").lower()
+    return {
+        "use_default": f"{prefix}schedule_custom" not in form,
+        "enabled": f"{prefix}schedule_enabled" in form,
+        "time": time if re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", time) else "06:00",
+        "frequency": freq if freq in ("daily", "weekly") else "daily",
+        "weekday": day if day in ("mon", "tue", "wed", "thu", "fri", "sat", "sun") else "mon",
+    }
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -178,6 +218,7 @@ def dashboard(request: Request):
         "ollama_base_url": raw_cfg.get("ollama", {}).get("base_url", ""),
         "config_missing_api_key": not raw_cfg.get("brave", {}).get("api_key"),
         "schedule": _schedule_info(raw_cfg),
+        "schedules": _all_module_schedules(raw_cfg),
         "timer": _timer_status(),
     }
     return templates.TemplateResponse(request, "dashboard.html", context)
@@ -186,7 +227,10 @@ def dashboard(request: Request):
 @app.get("/settings", response_class=HTMLResponse)
 def settings_form(request: Request):
     raw_cfg = config_io.load_raw_config(CONFIG_PATH)
-    return templates.TemplateResponse(request, "settings.html", {"cfg": raw_cfg, "saved": False})
+    return templates.TemplateResponse(
+        request, "settings.html",
+        {"cfg": raw_cfg, "schedules": _all_module_schedules(raw_cfg), "saved": False},
+    )
 
 
 @app.post("/settings", response_class=HTMLResponse)
@@ -233,10 +277,22 @@ async def settings_save(request: Request):
     wanted_day = get("schedule_weekday", sched.get("weekday", "mon")).lower()
     sched["weekday"] = wanted_day if wanted_day in ("mon", "tue", "wed", "thu", "fri", "sat", "sun") else "mon"
 
+    # Eigene Zeitpläne der eingebauten Module (nur wenn das Formular
+    # Zeitplan-Felder mitschickt -- sonst Bestand lassen).
+    comp_sched = _parse_schedule_fields(form, prefix="competitor_")
+    if comp_sched is not None:
+        comp["schedule"] = comp_sched
+    news_sched = _parse_schedule_fields(form, prefix="news_")
+    if news_sched is not None:
+        news["schedule"] = news_sched
+
     config_io.save_raw_config(CONFIG_PATH, raw_cfg)
     logger.info("Konfiguration über Dashboard aktualisiert (%s)", CONFIG_PATH)
 
-    return templates.TemplateResponse(request, "settings.html", {"cfg": raw_cfg, "saved": True})
+    return templates.TemplateResponse(
+        request, "settings.html",
+        {"cfg": raw_cfg, "schedules": _all_module_schedules(raw_cfg), "saved": True},
+    )
 
 
 @app.get("/api/ollama-models")
@@ -397,16 +453,34 @@ def modules_list(request: Request):
         {
             "builtin_modules": raw_cfg.get("modules", {}),
             "custom_modules": raw_cfg.get("custom_modules", []),
+            "schedules": _all_module_schedules(raw_cfg),
         },
     )
 
 
+def _schedule_form_defaults(raw_cfg: dict[str, Any], module: dict[str, Any] | None) -> dict[str, Any]:
+    """Vorbelegung für das Zeitplan-Formular eigener Module: effektive Werte
+    plus getrennte Flags für 'eigener Zeitplan' und 'automatisch'."""
+    eff = schedule_units.effective_schedule(raw_cfg, module)
+    own = ((module or {}).get("schedule") or {}) if isinstance(module, dict) else {}
+    return {
+        "custom": bool(own and not own.get("use_default", True)),
+        "enabled": eff["auto"],
+        "time": eff["time"],
+        "frequency": eff["frequency"],
+        "weekday": eff["weekday"],
+        "global_human": schedule_units.effective_schedule(raw_cfg, None)["human"],
+    }
+
+
 @app.get("/modules/new", response_class=HTMLResponse)
 def module_new_form(request: Request):
+    raw_cfg = config_io.load_raw_config(CONFIG_PATH)
     return templates.TemplateResponse(
         request,
         "module_form.html",
-        {"module": None, "error": None, "is_edit": False},
+        {"module": None, "error": None, "is_edit": False,
+         "sched": _schedule_form_defaults(raw_cfg, None)},
     )
 
 
@@ -419,19 +493,24 @@ def module_edit_form(request: Request, name: str):
     return templates.TemplateResponse(
         request,
         "module_form.html",
-        {"module": module, "error": None, "is_edit": True},
+        {"module": module, "error": None, "is_edit": True,
+         "sched": _schedule_form_defaults(raw_cfg, module)},
     )
 
 
 def _module_from_form(form) -> dict[str, Any]:
     queries = [line.strip() for line in str(form.get("queries", "")).splitlines() if line.strip()]
-    return {
+    module = {
         "name": str(form.get("name", "")).strip(),
         "enabled": "enabled" in form,
         "search_type": "news" if form.get("search_type") == "news" else "web",
         "queries": queries,
         "system_prompt": str(form.get("system_prompt", "")).strip(),
     }
+    sched = _parse_schedule_fields(form)
+    if sched is not None:
+        module["schedule"] = sched
+    return module
 
 
 @app.post("/modules/new", response_class=HTMLResponse)
@@ -454,7 +533,8 @@ async def module_new_save(request: Request):
 
     if error:
         return templates.TemplateResponse(
-            request, "module_form.html", {"module": {**module, "name": original_name}, "error": error, "is_edit": False}
+            request, "module_form.html", {"module": {**module, "name": original_name}, "error": error, "is_edit": False,
+                                          "sched": _schedule_form_defaults(raw_cfg, module)}
         )
 
     config_io.upsert_custom_module(raw_cfg, module)
@@ -467,17 +547,21 @@ async def module_new_save(request: Request):
 async def module_edit_save(request: Request, name: str):
     form = await request.form()
     raw_cfg = config_io.load_raw_config(CONFIG_PATH)
-    if config_io.find_custom_module(raw_cfg, name) is None:
+    existing = config_io.find_custom_module(raw_cfg, name)
+    if existing is None:
         return PlainTextResponse("Modul nicht gefunden.", status_code=404)
 
     module = _module_from_form(form)
     module["name"] = name  # Name bleibt beim Bearbeiten fest (ist der Identifier)
+    if "schedule" not in module and "schedule" in existing:
+        module["schedule"] = existing["schedule"]  # Bestand lassen, wenn Formular nichts mitschickt
 
     if not module["queries"]:
         return templates.TemplateResponse(
             request,
             "module_form.html",
-            {"module": module, "error": "Bitte mindestens eine Suchanfrage angeben (eine pro Zeile).", "is_edit": True},
+            {"module": module, "error": "Bitte mindestens eine Suchanfrage angeben (eine pro Zeile).", "is_edit": True,
+             "sched": _schedule_form_defaults(raw_cfg, module)},
         )
 
     config_io.upsert_custom_module(raw_cfg, module)

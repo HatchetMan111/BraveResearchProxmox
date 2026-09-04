@@ -6,12 +6,12 @@
 
 <section class="card">
   <h2>Eingebaute Module</h2>
-  <p class="muted">Branche/Region/Themen werden unter <a href="/settings">Einstellungen</a> gepflegt.</p>
+  <p class="muted">Branche/Region/Themen sowie der Zeitplan werden unter <a href="/settings">Einstellungen</a> gepflegt.</p>
   <ul class="report-list">
     {% for name, mod_cfg in builtin_modules.items() %}
       <li>
         <span>{{ name }}</span>
-        <span class="muted">{% if mod_cfg.get("enabled", True) %}aktiv{% else %}deaktiviert{% endif %}</span>
+        <span class="muted">{% if mod_cfg.get("enabled", True) %}aktiv{% else %}deaktiviert{% endif %} · Zeitplan: {{ schedules.get(name, {}).get("human", "–") }}</span>
       </li>
     {% endfor %}
   </ul>
@@ -33,6 +33,7 @@
               · {{ cm.get("search_type", "web") }}
               · {{ cm.get("queries", []) | length }} Suchanfrage(n)
               {% if not cm.get("enabled", True) %}· deaktiviert{% endif %}
+              · Zeitplan: {{ schedules.get(cm.name, {}).get("human", "–") }}
             </span>
           </div>
           <div>

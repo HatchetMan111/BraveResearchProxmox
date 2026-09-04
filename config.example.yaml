@@ -37,6 +37,13 @@ modules:
     branche: ""    # z.B. "Handwerksbetrieb"
     region: ""     # z.B. "Ihr Landkreis"
     queries_extra: []
+    # Eigener Zeitplan für dieses Modul (optional, bequem über /settings):
+    # schedule:
+    #   use_default: false  # false = dieser Block gilt statt dem Standard oben
+    #   enabled: true       # false = nur manuell über Dashboard
+    #   time: "07:30"
+    #   frequency: "daily"  # oder "weekly"
+    #   weekday: "mon"
 
   news_digest:
     enabled: true
@@ -49,15 +56,15 @@ modules:
 # bequem über das Dashboard unter /modules, kein Code nötig.
 custom_modules: []
 
-# Automatischer Zeitplan (systemd-Timer). Wird bequem über das Dashboard
-# unter /settings gepflegt. Hinweis: Nach dem Ändern hier den Timer neu
-# setzen, z.B.:
-#   sudo systemctl edit --full research-lxc-all.timer
-# und dort OnCalendar anpassen (täglich: *-*-* HH:MM:00,
-# wöchentlich: Mon *-*-* HH:MM:00), danach:
-#   sudo systemctl daemon-reload && sudo systemctl restart research-lxc-all.timer
+# Automatischer Zeitplan: globaler Standard (gilt für alle Module OHNE
+# eigenen Zeitplan). Pro Modul kann unter modules.<name>.schedule bzw. bei
+# eigenen Modulen über das Dashboard ein eigener Zeitplan gesetzt werden
+# (täglich/wöchentlich + Uhrzeit, oder nur manuell). Der Installer erzeugt
+# daraus je Modul einen System-Timer (research-lxc-mod-<name>.timer);
+# nach Änderungen im Dashboard Installer erneut laufen lassen oder als root:
+#   cd /opt/research-lxc && venv/bin/python -m app.schedule_units --config config.yaml --apply
 schedule:
   enabled: true
-  time: "06:00"      # HH:MM (24h) -- Tageszeit des automatischen Laufs
+  time: "06:00"      # HH:MM (24h) -- Standard-Uhrzeit
   frequency: "daily" # "daily" oder "weekly"
   weekday: "mon"     # nur bei frequency=weekly: mon, tue, wed, thu, fri, sat, sun

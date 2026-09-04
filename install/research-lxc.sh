@@ -190,9 +190,12 @@ install_inner() {
   cp "$APP_DIR/deploy/research-lxc@.service" /etc/systemd/system/
   cp "$APP_DIR/deploy/research-lxc-all.timer" /etc/systemd/system/
   cp "$APP_DIR/deploy/research-lxc-web.service" /etc/systemd/system/
-  systemctl daemon-reload
-  systemctl enable --now research-lxc-all.timer
-  msg_ok "Timer aktiviert (alle aktivierten Module täglich 06:00, siehe Dashboard)"
+  msg_info "Lege Zeitplan-Timer pro Modul an (aus config.yaml)..."
+  if ( cd "$APP_DIR" && "$APP_DIR/venv/bin/python" -m app.schedule_units --config "$APP_DIR/config.yaml" --units-dir /etc/systemd/system --apply ); then
+    msg_ok "Modul-Timer aktualisiert (je Modul: Uhrzeit/Häufigkeit aus Dashboard bzw. Standard)"
+  else
+    msg_error "Zeitplan-Anwendung fehlgeschlagen -- manuell als root: cd $APP_DIR && venv/bin/python -m app.schedule_units --config config.yaml --apply"
+  fi
   # WICHTIG: 'enable --now' startet einen bereits laufenden Service NICHT neu
   # (das 'start' darin ist ein No-Op, wenn der Service schon aktiv ist). Ohne
   # expliziten Restart würde das Dashboard nach jedem Update mit dem alten

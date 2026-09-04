@@ -84,7 +84,7 @@
     <div class="model-row">
       <button type="submit" class="btn btn-primary">Zeitplan speichern</button>
     </div>
-    <p class="hint">Legt fest, <strong>wann und wie oft</strong> alle aktivierten Module automatisch laufen. Hinweis: Der Wunsch wird hier gespeichert — der System-Timer muss einmalig dazu passend gesetzt werden: <code>sudo systemctl edit --full research-lxc-all.timer</code> (täglich: <code>OnCalendar=*-*-* HH:MM:00</code>, wöchentlich: <code>OnCalendar=Mon *-*-* HH:MM:00</code>), danach <code>sudo systemctl daemon-reload &amp;&amp; sudo systemctl restart research-lxc-all.timer</code>. Aktueller Timer-Status steht auf dem Dashboard.</p>
+    <p class="hint">Standard für alle Module <strong>ohne eigenen Zeitplan</strong> (oben bei den Modulen einstellbar). Nach dem Speichern einmalig anwenden: Installer erneut laufen lassen oder als root im App-Ordner <code>python -m app.schedule_units --apply</code> — erst dann werden die System-Timer angelegt bzw. aktualisiert. Aktueller Timer-Status steht auf dem Dashboard.</p>
   </fieldset>
 
   <fieldset>
@@ -99,6 +99,44 @@
     <label>Region
       <input type="text" name="competitor_region" value="{{ cfg.modules.competitor_analysis.region }}" placeholder="z.B. Ihre Region">
     </label>
+    <label class="checkbox-label">
+      <input type="checkbox" name="competitor_schedule_custom" {% if schedules['competitor_analysis'].custom %}checked{% endif %}>
+      Eigener Zeitplan für dieses Modul (statt Standard unten)
+    </label>
+    <div class="model-row">
+      <div>
+        <label class="checkbox-label">
+          <input type="checkbox" name="competitor_schedule_enabled" {% if schedules['competitor_analysis'].auto %}checked{% endif %}>
+          Automatisch laufen (sonst nur manuell)
+        </label>
+      </div>
+      <div>
+        <label>Uhrzeit
+          <input type="time" name="competitor_schedule_time" value="{{ schedules['competitor_analysis'].time }}">
+        </label>
+      </div>
+      <div>
+        <label>Häufigkeit
+          <select name="competitor_schedule_frequency">
+            <option value="daily" {% if schedules['competitor_analysis'].frequency == "daily" %}selected{% endif %}>Täglich</option>
+            <option value="weekly" {% if schedules['competitor_analysis'].frequency == "weekly" %}selected{% endif %}>Wöchentlich</option>
+          </select>
+        </label>
+      </div>
+      <div>
+        <label>Wochentag (nur wöchentlich)
+          <select name="competitor_schedule_weekday">
+            <option value="mon" {% if schedules['competitor_analysis'].weekday == "mon" %}selected{% endif %}>Montag</option>
+            <option value="tue" {% if schedules['competitor_analysis'].weekday == "tue" %}selected{% endif %}>Dienstag</option>
+            <option value="wed" {% if schedules['competitor_analysis'].weekday == "wed" %}selected{% endif %}>Mittwoch</option>
+            <option value="thu" {% if schedules['competitor_analysis'].weekday == "thu" %}selected{% endif %}>Donnerstag</option>
+            <option value="fri" {% if schedules['competitor_analysis'].weekday == "fri" %}selected{% endif %}>Freitag</option>
+            <option value="sat" {% if schedules['competitor_analysis'].weekday == "sat" %}selected{% endif %}>Samstag</option>
+            <option value="sun" {% if schedules['competitor_analysis'].weekday == "sun" %}selected{% endif %}>Sonntag</option>
+          </select>
+        </label>
+      </div>
+    </div>
   </fieldset>
 
   <fieldset>
@@ -116,6 +154,45 @@
     <label>Stil
       <input type="text" name="news_stil" value="{{ cfg.modules.news_digest.stil }}" placeholder="sachlich, lokal, freundlich">
     </label>
+    <label class="checkbox-label">
+      <input type="checkbox" name="news_schedule_custom" {% if schedules['news_digest'].custom %}checked{% endif %}>
+      Eigener Zeitplan für dieses Modul (statt Standard unten)
+    </label>
+    <div class="model-row">
+      <div>
+        <label class="checkbox-label">
+          <input type="checkbox" name="news_schedule_enabled" {% if schedules['news_digest'].auto %}checked{% endif %}>
+          Automatisch laufen (sonst nur manuell)
+        </label>
+      </div>
+      <div>
+        <label>Uhrzeit
+          <input type="time" name="news_schedule_time" value="{{ schedules['news_digest'].time }}">
+        </label>
+      </div>
+      <div>
+        <label>Häufigkeit
+          <select name="news_schedule_frequency">
+            <option value="daily" {% if schedules['news_digest'].frequency == "daily" %}selected{% endif %}>Täglich</option>
+            <option value="weekly" {% if schedules['news_digest'].frequency == "weekly" %}selected{% endif %}>Wöchentlich</option>
+          </select>
+        </label>
+      </div>
+      <div>
+        <label>Wochentag (nur wöchentlich)
+          <select name="news_schedule_weekday">
+            <option value="mon" {% if schedules['news_digest'].weekday == "mon" %}selected{% endif %}>Montag</option>
+            <option value="tue" {% if schedules['news_digest'].weekday == "tue" %}selected{% endif %}>Dienstag</option>
+            <option value="wed" {% if schedules['news_digest'].weekday == "wed" %}selected{% endif %}>Mittwoch</option>
+            <option value="thu" {% if schedules['news_digest'].weekday == "thu" %}selected{% endif %}>Donnerstag</option>
+            <option value="fri" {% if schedules['news_digest'].weekday == "fri" %}selected{% endif %}>Freitag</option>
+            <option value="sat" {% if schedules['news_digest'].weekday == "sat" %}selected{% endif %}>Samstag</option>
+            <option value="sun" {% if schedules['news_digest'].weekday == "sun" %}selected{% endif %}>Sonntag</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    <p class="hint">Eigene Zeitpläne wirken erst, nachdem die Timer angelegt wurden: Installer erneut laufen lassen oder als root <code>python -m app.schedule_units --apply</code> im App-Ordner.</p>
   </fieldset>
 
   <fieldset>

@@ -38,13 +38,32 @@ DEFAULTS: dict[str, Any] = {
         "smtp": {"host": "", "port": 587, "user": "", "password": "", "use_tls": True},
     },
     "modules": {
-        "competitor_analysis": {"enabled": True, "branche": "", "region": "", "queries_extra": []},
+        "competitor_analysis": {
+            "enabled": True,
+            "branche": "",
+            "region": "",
+            "queries_extra": [],
+            "schedule": {
+                "use_default": True,  # False = eigener Zeitplan statt globalem Standard
+                "enabled": True,  # False = nur manuell, kein Auto-Lauf
+                "time": "06:00",
+                "frequency": "daily",  # "daily" oder "weekly"
+                "weekday": "mon",
+            },
+        },
         "news_digest": {
             "enabled": True,
             "region": "",
             "themen": [],
             "stil": "sachlich, lokal, freundlich",
             "queries_extra": [],
+            "schedule": {
+                "use_default": True,
+                "enabled": True,
+                "time": "06:00",
+                "frequency": "daily",
+                "weekday": "mon",
+            },
         },
     },
     "custom_modules": [],

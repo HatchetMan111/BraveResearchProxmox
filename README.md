@@ -144,6 +144,23 @@ Eigenes Modul hinzufügen -- zwei Wege:
    komplexerer Query- oder Prompt-Logik als die einfache Query-Liste der
    Dashboard-Module.
 
+## ⏰ Zeitplan pro Modul
+
+Jedes Modul kann **täglich oder wöchentlich zu einer eigenen Uhrzeit** laufen
+– oder nur manuell:
+
+- **Eingebaute Module**: unter `/settings` je Modul „Eigener Zeitplan“
+  ankreuzen (sonst gilt der Standard aus dem Zeitplan-Bereich).
+- **Eigene Module**: direkt beim Anlegen/Bearbeiten unter `/modules`
+  (Schritt 4 „Zeitplan“).
+- **Anwenden**: Danach den Installer erneut laufen lassen *oder* als root im
+  App-Ordner `venv/bin/python -m app.schedule_units --config config.yaml --apply`
+  – erst dann werden die System-Timer (`research-lxc-mod-<name>.timer`)
+  angelegt bzw. aktualisiert. Die Web-UI darf aus Sicherheitsgründen keine
+  systemd-Units anfassen.
+- **Prüfen**: `systemctl list-timers 'research-lxc-*'` oder die
+  Zeitplan-Karte auf dem Dashboard.
+
 ## 🖥️ Web-Dashboard
 
 Nach der Installation erreichbar unter `http://<Container-IP>:8000`
