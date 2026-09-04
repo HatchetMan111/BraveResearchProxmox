@@ -25,15 +25,24 @@
     </label>
     <div class="model-row">
       <div>
-        <label>Modell
-          <input type="text" id="ollama_model" name="ollama_model" list="ollama-models-list"
-                 value="{{ cfg.ollama.model }}" placeholder="Modelle laden oder Namen eintippen">
-          <datalist id="ollama-models-list"></datalist>
+        <label>Installierte Modelle (Auswahlliste)
+          <select id="ollama_model_select">
+            <option value="">— Erst „Modelle laden“ klicken —</option>
+          </select>
         </label>
       </div>
       <button type="button" class="btn" id="load-models-btn">Modelle laden</button>
     </div>
-    <p class="model-status" id="model-status"></p>
+    <label>Modell (wird gespeichert)
+      <input type="text" id="ollama_model" name="ollama_model"
+             value="{{ cfg.ollama.model }}" placeholder="z.B. llama3.1:latest">
+    </label>
+    <p class="hint">Modell oben aus der Liste wählen — es wird automatisch in dieses Feld übernommen. Alternativ einen Namen manuell eintippen (für Modelle, die erst per <code>ollama pull</code> installiert werden).</p>
+    <div class="model-row">
+      <button type="button" class="btn" id="test-ollama-btn">Verbindung testen</button>
+    </div>
+    <p class="model-status" id="model-status" aria-live="polite"></p>
+    <p class="model-status" id="ollama-test-status" aria-live="polite"></p>
   </fieldset>
 
   <fieldset>
@@ -102,37 +111,119 @@
 (function () {
   const baseUrlInput = document.getElementById("ollama_base_url");
   const modelInput = document.getElementById("ollama_model");
-  const datalist = document.getElementById("ollama-models-list");
+  const modelSelect = document.getElementById("ollama_model_select");
   const statusEl = document.getElementById("model-status");
+  const testStatusEl = document.getElementById("ollama-test-status");
   const loadBtn = document.getElementById("load-models-btn");
+  const testBtn = document.getElementById("test-ollama-btn");
+
+  function setStatus(el, msg, ok) {
+    el.textContent = msg;
+    el.style.color = ok === true ? "var(--ok)" : ok === false ? "var(--error)" : "";
+  }
+
+  function fillSelect(models) {
+    const current = modelInput.value.trim();
+    modelSelect.innerHTML = "";
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = models.length
+      ? "— Modell wählen (übernimmt ins Feld unten) —"
+      : "— Keine Modelle gefunden —";
+    modelSelect.appendChild(placeholder);
+    models.forEach(function (name) {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      modelSelect.appendChild(opt);
+    });
+    // Bereits gespeicherten Wert vorauswählen, auch wenn er (noch) nicht
+    // in der Serverliste steht (z.B. manuell eingetippt).
+    if (current && !models.includes(current)) {
+      const opt = document.createElement("option");
+      opt.value = current;
+      opt.textContent = current + " (gespeichert)";
+      modelSelect.appendChild(opt);
+    }
+    if (current) {
+      modelSelect.value = current;
+    }
+  }
 
   async function loadModels() {
     const baseUrl = baseUrlInput.value.trim();
     if (!baseUrl) {
-      statusEl.textContent = "Erst eine Ollama Base-URL eintragen.";
+      setStatus(statusEl, "Erst eine Ollama Base-URL eintragen.", false);
       return;
     }
-    statusEl.textContent = "Lade Modelle …";
+    setStatus(statusEl, "Lade Modelle …");
+    loadBtn.disabled = true;
     try {
       const resp = await fetch("/api/ollama-models?base_url=" + encodeURIComponent(baseUrl));
       const data = await resp.json();
-      datalist.innerHTML = "";
       if (data.models && data.models.length) {
-        data.models.forEach(function (name) {
-          const opt = document.createElement("option");
-          opt.value = name;
-          datalist.appendChild(opt);
-        });
-        statusEl.textContent = data.models.length + " installierte(s) Modell(e) gefunden -- aus der Liste wählen oder eigenen Namen eintippen.";
+        fillSelect(data.models);
+        setStatus(statusEl, data.models.length + " installierte(s) Modell(e) gefunden — oben aus der Liste wählen, es wird ins Feld darunter übernommen.", true);
       } else {
-        statusEl.textContent = data.error || "Keine Modelle gefunden -- Namen manuell eintippen.";
+        fillSelect([]);
+        setStatus(statusEl, (data.error || "Keine Modelle gefunden — Namen manuell eintippen."), false);
       }
     } catch (err) {
-      statusEl.textContent = "Ollama nicht erreichbar -- Modellnamen manuell eintippen.";
+      fillSelect([]);
+      setStatus(statusEl, "Ollama nicht erreichbar — Modellnamen manuell eintippen.", false);
+    } finally {
+      loadBtn.disabled = false;
     }
   }
 
+  async function testConnection() {
+    const baseUrl = baseUrlInput.value.trim();
+    const model = modelInput.value.trim();
+    if (!baseUrl) {
+      setStatus(testStatusEl, "Erst eine Ollama Base-URL eintragen.", false);
+      return;
+    }
+    if (!model) {
+      setStatus(testStatusEl, "Erst ein Modell wählen oder eintippen.", false);
+      return;
+    }
+    setStatus(testStatusEl, "Teste Verbindung …");
+    testBtn.disabled = true;
+    try {
+      const resp = await fetch(
+        "/api/ollama-test?base_url=" + encodeURIComponent(baseUrl) +
+        "&model=" + encodeURIComponent(model)
+      );
+      const data = await resp.json();
+      setStatus(testStatusEl, data.message || (data.ok ? "OK" : "Fehler"), data.ok);
+    } catch (err) {
+      setStatus(testStatusEl, "Test fehlgeschlagen: Server nicht erreichbar.", false);
+    } finally {
+      testBtn.disabled = false;
+    }
+  }
+
+  // ECHTES Dropdown: Auswahl übernimmt den Wert ins Textfeld (das gespeichert wird).
+  modelSelect.addEventListener("change", function () {
+    if (modelSelect.value) {
+      modelInput.value = modelSelect.value;
+      setStatus(statusEl, "Modell '" + modelSelect.value + "' gewählt — unten auf Speichern klicken.", true);
+    }
+  });
+
+  // Tippt man manuell, Select nachführen falls der Name in der Liste ist.
+  modelInput.addEventListener("input", function () {
+    const v = modelInput.value.trim();
+    const exists = Array.from(modelSelect.options).some(function (o) { return o.value === v; });
+    if (exists) {
+      modelSelect.value = v;
+    } else if (modelSelect.options.length) {
+      modelSelect.value = "";
+    }
+  });
+
   loadBtn.addEventListener("click", loadModels);
+  testBtn.addEventListener("click", testConnection);
   if (baseUrlInput.value.trim()) {
     loadModels();
   }

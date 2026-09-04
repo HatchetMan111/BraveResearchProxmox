@@ -122,7 +122,7 @@ async def settings_save(request: Request):
     raw_cfg["brave"]["api_key"] = get("brave_api_key", raw_cfg["brave"].get("api_key", ""))
     raw_cfg["brave"]["max_requests_per_month"] = int(get("brave_max_requests_per_month", "950") or 950)
 
-    raw_cfg["ollama"]["base_url"] = get("ollama_base_url")
+    raw_cfg["ollama"]["base_url"] = get("ollama_base_url").rstrip("/")
     raw_cfg["ollama"]["model"] = get("ollama_model")
 
     comp = raw_cfg["modules"].setdefault("competitor_analysis", {})
@@ -171,6 +171,75 @@ def api_ollama_models(base_url: str = ""):
         return JSONResponse({"models": [], "error": f"Ollama nicht erreichbar: {exc}"})
     except ValueError:
         return JSONResponse({"models": [], "error": "Unerwartete Antwort von Ollama."})
+
+
+@app.get("/api/ollama-test")
+def api_ollama_test(base_url: str = "", model: str = ""):
+    """Prüft vor dem Speichern/Lauf, ob Base-URL erreichbar ist und das Modell
+    dort installiert ist. Gibt klares Feedback statt dem kryptischen
+    '404 Client Error for /api/generate' erst beim nächtlichen Lauf."""
+    url = (base_url or "").strip().rstrip("/")
+    name = (model or "").strip()
+    if not url:
+        return JSONResponse({"ok": False, "message": "Keine Ollama-URL angegeben."})
+    if not name:
+        return JSONResponse({"ok": False, "message": "Kein Modell angegeben."})
+    try:
+        resp = requests.get(f"{url}/api/tags", timeout=8)
+        resp.raise_for_status()
+        data = resp.json()
+        models = sorted({m.get("name") for m in data.get("models", []) if m.get("name")})
+    except requests.RequestException as exc:
+        return JSONResponse(
+            {
+                "ok": False,
+                "message": f"Ollama unter {url} nicht erreichbar: {exc}. "
+                "Läuft Ollama? Stimmt IP/Port? Erreichbar vom LXC aus?",
+            }
+        )
+    except ValueError:
+        return JSONResponse({"ok": False, "message": "Unerwartete Antwort von Ollama (/api/tags)."})
+
+    # "llama3.1" soll auch "llama3.1:latest" treffen
+    def _base(n: str) -> str:
+        return n.split(":")[0].lower()
+
+    match = name in models or any(_base(m) == _base(name) for m in models)
+    if not match:
+        shown = ", ".join(models[:10]) if models else "keine"
+        return JSONResponse(
+            {
+                "ok": False,
+                "models": models,
+                "message": f"Modell '{name}' ist auf {url} NICHT installiert. "
+                f"Installiert: {shown}. "
+                f"Auf dem Ollama-Host 'ollama pull {name}' ausführen "
+                f"oder ein installiertes Modell aus der Liste wählen.",
+            }
+        )
+
+    # Optionaler Tiefen-Check per /api/show (ältere Ollama-Versionen ohne
+    # diesen Endpunkt gelten bei Tags-Treffer trotzdem als OK).
+    try:
+        show = requests.post(f"{url}/api/show", json={"name": name}, timeout=15)
+        if show.status_code == 404:
+            return JSONResponse(
+                {
+                    "ok": False,
+                    "models": models,
+                    "message": f"Modell '{name}' meldet 404 per /api/show "
+                    f"-- exakten Namen aus der Liste übernehmen.",
+                }
+            )
+        show.raise_for_status()
+    except requests.RequestException:
+        pass  # Tags-Treffer reicht als Positiv-Signal
+    except ValueError:
+        pass
+
+    return JSONResponse(
+        {"ok": True, "models": models, "message": f"✔ OK: '{name}' auf {url} bereit."}
+    )
 
 
 def _execute_run(module_name: str) -> None:
