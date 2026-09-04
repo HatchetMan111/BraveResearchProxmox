@@ -12,6 +12,7 @@ Trade-off für die MVP-Version.
 
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 from typing import Any
 
@@ -25,7 +26,7 @@ DEFAULTS: dict[str, Any] = {
     },
     "ollama": {
         "base_url": "",
-        "model": "llama3.1",
+        "model": "",
         "timeout_seconds": 180,
     },
     "cache": {"db_path": "data/cache.db", "ttl_hours": 24},
@@ -46,11 +47,12 @@ DEFAULTS: dict[str, Any] = {
             "queries_extra": [],
         },
     },
+    "custom_modules": [],
 }
 
 
 def _deep_merge(base: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:
-    result = dict(base)
+    result = copy.deepcopy(base)
     for key, value in overrides.items():
         if isinstance(value, dict) and isinstance(result.get(key), dict):
             result[key] = _deep_merge(result[key], value)
@@ -62,7 +64,7 @@ def _deep_merge(base: dict[str, Any], overrides: dict[str, Any]) -> dict[str, An
 def load_raw_config(path: str | Path) -> dict[str, Any]:
     path = Path(path)
     if not path.exists():
-        return DEFAULTS
+        return copy.deepcopy(DEFAULTS)
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     return _deep_merge(DEFAULTS, raw)
 
@@ -74,3 +76,28 @@ def save_raw_config(path: str | Path, config: dict[str, Any]) -> None:
         yaml.safe_dump(config, allow_unicode=True, sort_keys=False),
         encoding="utf-8",
     )
+
+
+def upsert_custom_module(config: dict[str, Any], module: dict[str, Any]) -> None:
+    """Fügt ein eigenes Modul hinzu oder ersetzt eines mit demselben Namen."""
+    modules = config.setdefault("custom_modules", [])
+    name = module["name"]
+    for i, m in enumerate(modules):
+        if m.get("name") == name:
+            modules[i] = module
+            return
+    modules.append(module)
+
+
+def delete_custom_module(config: dict[str, Any], name: str) -> bool:
+    modules = config.get("custom_modules", [])
+    before = len(modules)
+    config["custom_modules"] = [m for m in modules if m.get("name") != name]
+    return len(config["custom_modules"]) < before
+
+
+def find_custom_module(config: dict[str, Any], name: str) -> dict[str, Any] | None:
+    for m in config.get("custom_modules", []):
+        if m.get("name") == name:
+            return m
+    return None

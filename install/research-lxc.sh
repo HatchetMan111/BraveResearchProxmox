@@ -82,12 +82,11 @@ chown -R "$SERVICE_USER:$SERVICE_USER" "$APP_DIR"
 
 msg_info "Installiere systemd-Units..."
 cp "$APP_DIR/deploy/research-lxc@.service" /etc/systemd/system/
-cp "$APP_DIR/deploy/research-lxc-competitor.timer" /etc/systemd/system/
-cp "$APP_DIR/deploy/research-lxc-news.timer" /etc/systemd/system/
+cp "$APP_DIR/deploy/research-lxc-all.timer" /etc/systemd/system/
 cp "$APP_DIR/deploy/research-lxc-web.service" /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable --now research-lxc-competitor.timer research-lxc-news.timer
-msg_ok "Timer aktiviert (Konkurrenzanalyse wöchentlich Mo 06:00, News-Digest täglich 07:00)"
+systemctl enable --now research-lxc-all.timer
+msg_ok "Timer aktiviert (alle aktivierten Module täglich 06:00, siehe Dashboard)"
 systemctl enable --now research-lxc-web.service
 msg_ok "Web-Dashboard gestartet (Port 8000)"
 

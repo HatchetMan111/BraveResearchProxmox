@@ -1,0 +1,10 @@
+[Unit]
+Description=Täglicher Lauf aller aktivierten Recherche-Module (Recherche-LXC)
+
+[Timer]
+OnCalendar=*-*-* 06:00:00
+Persistent=true
+Unit=research-lxc@all.service
+
+[Install]
+WantedBy=timers.target

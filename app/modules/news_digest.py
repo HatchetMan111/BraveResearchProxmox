@@ -1,7 +1,7 @@
 """Modul: lokale News-Zusammenfassung im vorgegebenen Stil.
 
 Config-Optionen (unter modules.news_digest.* in config.yaml):
-    region:        z.B. "Main-Tauber-Kreis"
+    region:        z.B. "Ihre Region"
     themen:        Liste von Themen, z.B. ["Energie", "SmartHome", "Förderprogramme"]
     stil:          Freitext-Stilvorgabe für Ollama, z.B. "sachlich, lokal, freundlich"
 

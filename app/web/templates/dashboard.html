@@ -32,9 +32,9 @@
           {% if not mod_cfg.get("enabled", True) %}<span class="badge badge-off">deaktiviert</span>{% endif %}
         </div>
         {% if name == "competitor_analysis" %}
-          <p class="muted">{{ mod_cfg.get("branche", "–") }} · {{ mod_cfg.get("region", "–") }}</p>
+          <p class="muted">{{ mod_cfg.get("branche") or "–" }} · {{ mod_cfg.get("region") or "–" }}</p>
         {% elif name == "news_digest" %}
-          <p class="muted">{{ mod_cfg.get("region", "–") }} · {{ mod_cfg.get("themen", []) | join(", ") or "–" }}</p>
+          <p class="muted">{{ mod_cfg.get("region") or "–" }} · {{ mod_cfg.get("themen", []) | join(", ") or "–" }}</p>
         {% endif %}
 
         {% if status.status == "running" %}
@@ -56,6 +56,41 @@
         </form>
       </div>
     {% endfor %}
+
+    {% for cm in custom_modules %}
+      {% set status = run_status.get(cm.name, {"status": "idle"}) %}
+      <div class="module-card">
+        <div class="module-head">
+          <strong>{{ cm.name }}</strong>
+          <span class="badge">eigenes Modul</span>
+          {% if not cm.get("enabled", True) %}<span class="badge badge-off">deaktiviert</span>{% endif %}
+        </div>
+        <p class="muted">{{ cm.get("search_type", "web") }} · {{ cm.get("queries", []) | length }} Suchanfrage(n)</p>
+
+        {% if status.status == "running" %}
+          <p class="status status-running">läuft …</p>
+        {% elif status.status == "done" %}
+          <p class="status status-done">
+            ✔ fertig{% if status.report_file %} –
+            <a href="/reports/{{ status.report_file }}">Report ansehen</a>{% endif %}
+            {% if status.budget_exhausted %}<br><span class="muted">⚠️ unvollständig (Budget erschöpft)</span>{% endif %}
+          </p>
+        {% elif status.status == "error" %}
+          <p class="status status-error">✘ Fehler: {{ status.error or "unbekannt" }}</p>
+        {% endif %}
+
+        <form method="post" action="/run/{{ cm.name }}">
+          <button type="submit" class="btn" {% if status.status == "running" %}disabled{% endif %}>
+            Jetzt ausführen
+          </button>
+        </form>
+      </div>
+    {% endfor %}
+
+    <div class="module-card module-card-add">
+      <p class="muted">Weiteres Recherche-Thema hinzufügen?</p>
+      <a href="/modules/new" class="btn">+ Neues Modul</a>
+    </div>
   </div>
 </section>
 

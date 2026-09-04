@@ -1,7 +1,10 @@
 """CLI: python -m app.main --module competitor_analysis --config config.yaml
+       python -m app.main --module all --config config.yaml
 
-Wird vom systemd-Timer periodisch aufgerufen (siehe deploy/research-lxc.timer),
-kann aber auch manuell zum Testen ausgeführt werden.
+Wird vom systemd-Timer periodisch aufgerufen (siehe deploy/research-lxc-all.timer),
+kann aber auch manuell zum Testen ausgeführt werden. '--module all' führt alle
+aktivierten Module nacheinander aus (eingebaute + über das Dashboard angelegte
+eigene Module) -- neue Module brauchen dadurch keinen eigenen systemd-Timer.
 """
 
 from __future__ import annotations
@@ -12,15 +15,46 @@ import sys
 
 from . import output, pipeline
 from .budget_tracker import BudgetExceededError
-from .config import load_config
-from .modules import MODULES
+from .config import AppConfig, load_config
 from .ollama_client import OllamaError
+
+
+def _run_one(module_name: str, config: AppConfig, log: logging.Logger, send_email: bool) -> int:
+    try:
+        result = pipeline.run_module(module_name, config)
+    except ValueError as exc:
+        log.error("%s", exc)
+        return 2
+    except BudgetExceededError as exc:
+        log.error("Kein Budget mehr verfügbar, Lauf '%s' abgebrochen: %s", module_name, exc)
+        return 3
+    except OllamaError as exc:
+        log.error("Ollama-Fehler bei Modul '%s': %s", module_name, exc)
+        return 4
+
+    report_path = output.write_report(result, config.output)
+    log.info("Modul '%s' -- Report: %s", module_name, report_path)
+
+    if result.budget_exhausted:
+        log.warning(
+            "Modul '%s' war unvollständig: %d/%d Queries übersprungen (Budget erschöpft).",
+            module_name,
+            len(result.queries_skipped),
+            len(result.queries_planned),
+        )
+
+    if send_email:
+        output.send_report_email(result, report_path, config.output)
+
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Recherche-LXC: Brave Search + externes Ollama")
     parser.add_argument(
-        "--module", required=True, choices=sorted(MODULES.keys()), help="Auszuführendes Modul"
+        "--module",
+        required=True,
+        help="Auszuführendes Modul (Name aus config.yaml) oder 'all' für alle aktivierten Module",
     )
     parser.add_argument("--config", default="config.yaml", help="Pfad zur config.yaml")
     parser.add_argument(
@@ -41,32 +75,17 @@ def main(argv: list[str] | None = None) -> int:
         log.error("Konfigurationsfehler: %s", exc)
         return 2
 
-    try:
-        result = pipeline.run_module(args.module, config)
-    except ValueError as exc:
-        log.error("%s", exc)
-        return 2
-    except BudgetExceededError as exc:
-        log.error("Kein Budget mehr verfügbar, Lauf abgebrochen: %s", exc)
-        return 3
-    except OllamaError as exc:
-        log.error("Ollama-Fehler: %s", exc)
-        return 4
+    if args.module == "all":
+        module_names = pipeline.list_available_modules(config)
+        if not module_names:
+            log.warning("Keine aktivierten Module gefunden -- nichts zu tun.")
+            return 0
+        exit_codes = [
+            _run_one(name, config, log, send_email=not args.no_email) for name in module_names
+        ]
+        return max(exit_codes)
 
-    report_path = output.write_report(result, config.output)
-    log.info("Report: %s", report_path)
-
-    if result.budget_exhausted:
-        log.warning(
-            "Lauf war unvollständig: %d/%d Queries übersprungen (Budget erschöpft).",
-            len(result.queries_skipped),
-            len(result.queries_planned),
-        )
-
-    if not args.no_email:
-        output.send_report_email(result, report_path, config.output)
-
-    return 0
+    return _run_one(args.module, config, log, send_email=not args.no_email)
 
 
 if __name__ == "__main__":

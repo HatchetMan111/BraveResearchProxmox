@@ -1,8 +1,8 @@
 """Modul: lokale Konkurrenzanalyse.
 
 Config-Optionen (unter modules.competitor_analysis.* in config.yaml):
-    branche:       z.B. "SmartHome Integration"
-    region:        z.B. "Main-Tauber-Kreis"
+    branche:       z.B. "Ihre Branche"
+    region:        z.B. "Ihre Region"
     queries_extra: optionale Liste zusätzlicher, frei formulierter Queries
 
 Bewusst wenige, breite Brave-Queries -- die Detailarbeit (neue Anbieter,

@@ -1,15 +1,16 @@
-# Kopieren nach config.yaml und Werte anpassen.
+# Kopieren nach config.yaml und Werte anpassen -- oder einfach leer lassen
+# und alles bequem über das Web-Dashboard unter /settings eintragen.
 # Sensible Werte (api_key, smtp.password) können stattdessen auch per
 # Umgebungsvariable gesetzt werden: BRAVE_API_KEY, SMTP_PASSWORD
 
 brave:
-  api_key: "DEIN_BRAVE_API_KEY"
+  api_key: ""
   base_url: "https://api.search.brave.com/res/v1"
   max_requests_per_month: 950  # Sicherheitspuffer unter dem 1000er-Gratislimit
 
 ollama:
-  base_url: "http://OLLAMA-HOST:11434"  # externe, selbst gehostete Ollama-Instanz
-  model: "llama3.1"
+  base_url: ""    # z.B. http://192.168.1.10:11434 -- externe, selbst gehostete Ollama-Instanz
+  model: ""       # im Dashboard aus den auf der Ollama-Instanz installierten Modellen wählbar
   timeout_seconds: 180
 
 cache:
@@ -21,8 +22,8 @@ budget:
 
 output:
   reports_dir: "reports"
-  email_to: "info@lichtvalleyapps.de"
-  email_from: "research-lxc@lichtvalleyapps.de"
+  email_to: ""
+  email_from: ""
   smtp:
     host: ""       # leer lassen = kein E-Mail-Versand, Report bleibt lokal
     port: 587
@@ -33,16 +34,17 @@ output:
 modules:
   competitor_analysis:
     enabled: true
-    branche: "SmartHome Integration"
-    region: "Main-Tauber-Kreis"
+    branche: ""    # z.B. "Handwerksbetrieb"
+    region: ""     # z.B. "Ihr Landkreis"
     queries_extra: []
 
   news_digest:
     enabled: true
-    region: "Main-Tauber-Kreis"
-    themen:
-      - "Energie"
-      - "SmartHome"
-      - "Förderprogramme"
+    region: ""
+    themen: []     # z.B. ["Energie", "Förderprogramme"]
     stil: "sachlich, lokal, freundlich"
     queries_extra: []
+
+# Frei definierbare, zusätzliche Recherche-Module -- Anlage und Verwaltung
+# bequem über das Dashboard unter /modules, kein Code nötig.
+custom_modules: []

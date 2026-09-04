@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Module – Recherche-LXC{% endblock %}
+{% block content %}
+
+<h1>Module</h1>
+
+<section class="card">
+  <h2>Eingebaute Module</h2>
+  <p class="muted">Branche/Region/Themen werden unter <a href="/settings">Einstellungen</a> gepflegt.</p>
+  <ul class="report-list">
+    {% for name, mod_cfg in builtin_modules.items() %}
+      <li>
+        <span>{{ name }}</span>
+        <span class="muted">{% if mod_cfg.get("enabled", True) %}aktiv{% else %}deaktiviert{% endif %}</span>
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="card">
+  <div class="module-head" style="justify-content: space-between; display:flex;">
+    <h2 style="margin:0;">Eigene Module</h2>
+    <a href="/modules/new" class="btn btn-primary">+ Neues Modul</a>
+  </div>
+
+  {% if custom_modules %}
+    <ul class="report-list">
+      {% for cm in custom_modules %}
+        <li>
+          <div>
+            <strong>{{ cm.name }}</strong>
+            <span class="muted">
+              · {{ cm.get("search_type", "web") }}
+              · {{ cm.get("queries", []) | length }} Suchanfrage(n)
+              {% if not cm.get("enabled", True) %}· deaktiviert{% endif %}
+            </span>
+          </div>
+          <div>
+            <a href="/modules/{{ cm.name }}/edit">Bearbeiten</a>
+            &nbsp;·&nbsp;
+            <form method="post" action="/modules/{{ cm.name }}/delete" style="display:inline"
+                  onsubmit="return confirm('Modul \'{{ cm.name }}\' wirklich löschen?');">
+              <button type="submit" class="btn" style="padding:2px 8px;">Löschen</button>
+            </form>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">Noch keine eigenen Module angelegt.</p>
+  {% endif %}
+</section>
+
+{% endblock %}

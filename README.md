@@ -6,10 +6,12 @@ Standard 950 Requests) und lässt die Ergebnisse von einer **externen,
 selbst gehosteten Ollama-Instanz** filtern, strukturieren und im
 gewünschten Stil zusammenfassen.
 
-Zwei Module sind enthalten und beliebig erweiterbar:
+Zwei Module sind eingebaut, beliebig viele weitere lassen sich **ganz ohne
+Code über das Web-Dashboard** anlegen:
 
 - **`competitor_analysis`** – lokale Konkurrenzanalyse für eine Branche+Region
 - **`news_digest`** – lokale News-Zusammenfassung im vorgegebenen Redaktionsstil
+- **eigene Module** – Name, Suchanfragen und Ollama-Anweisung frei definierbar unter `/modules`
 
 ## 🚀 Schnellinstallation
 
@@ -36,10 +38,13 @@ Script die passende URL (`http://<Container-IP>:8000`) direkt an.
 - ✅ **Graceful Degradation** – geht das Budget mitten im Lauf aus, bricht
   der Lauf nicht ab, sondern fasst zusammen, was vorliegt, und markiert den
   Report deutlich als unvollständig
-- ✅ **Modular** – neue Recherche-Themen sind ein neues Modul unter `app/modules/`
+- ✅ **Modular** – neue Recherche-Themen als eigenes Modul über das Dashboard
+  anlegen (kein Code nötig) oder als Python-Datei unter `app/modules/`
 - ✅ **Reports als Markdown**, optional zusätzlich per E-Mail (SMTP)
 - ✅ **Web-Dashboard** – Konfiguration per Browser-Formular, Reports ansehen,
   Läufe manuell anstoßen, Budget-Stand auf einen Blick (kein SSH nötig)
+- ✅ **Ollama-Modell-Auswahl** – Dashboard fragt die auf der Ollama-Instanz
+  bereits installierten Modelle ab, Auswahl per Dropdown statt Tippfehler-Risiko
 
 ## 📋 Voraussetzungen
 
@@ -66,8 +71,10 @@ cd /opt/research-lxc
 sudo -u research venv/bin/python -m app.main \
   --module competitor_analysis --config config.yaml --no-email -v
 
+# Alle aktivierten Module nacheinander (eingebaute + eigene) -- das läuft
+# auch täglich automatisch per Timer, siehe unten
 sudo -u research venv/bin/python -m app.main \
-  --module news_digest --config config.yaml --no-email -v
+  --module all --config config.yaml --no-email -v
 ```
 
 Reports landen als Markdown unter `reports/`.
@@ -83,21 +90,36 @@ brave:
 
 ollama:
   base_url: "http://OLLAMA-HOST:11434"
-  model: "llama3.1"
+  model: "..."                  # im Dashboard aus installierten Modellen wählbar
 
 modules:
   competitor_analysis:
-    branche: "SmartHome Integration"
-    region: "Main-Tauber-Kreis"
+    branche: "Ihre Branche"
+    region: "Ihre Region"
   news_digest:
-    region: "Main-Tauber-Kreis"
-    themen: ["Energie", "SmartHome", "Förderprogramme"]
+    region: "Ihre Region"
+    themen: ["Energie", "Förderprogramme"]
     stil: "sachlich, lokal, freundlich"
+
+custom_modules:
+  - name: vereinsnachrichten
+    enabled: true
+    search_type: news            # "web" oder "news"
+    queries:
+      - "Musterverein Neuigkeiten"
+    system_prompt: "Fasse kurz und sachlich zusammen."
 ```
 
-Neues Modul hinzufügen: Datei unter `app/modules/` mit `NAME`,
-`SEARCH_TYPE`, `build_queries()` und `build_prompt()` anlegen und in
-`app/modules/__init__.py` registrieren.
+Eigenes Modul hinzufügen -- zwei Wege:
+
+1. **Ohne Code**: über das Dashboard unter `/modules` -- Name, Suchanfragen
+   und Ollama-Anweisung eintragen, läuft ab sofort beim täglichen
+   `--module all`-Lauf mit.
+2. **Als Python-Modul**: Datei unter `app/modules/` mit `NAME`,
+   `SEARCH_TYPE`, `build_queries()` und `build_prompt()` anlegen und in
+   `app/modules/__init__.py` registrieren -- sinnvoll für Module mit
+   komplexerer Query- oder Prompt-Logik als die einfache Query-Liste der
+   Dashboard-Module.
 
 ## 🖥️ Web-Dashboard
 
@@ -108,7 +130,8 @@ Nach der Installation erreichbar unter `http://<Container-IP>:8000`
 | Route         | Zweck                                                        |
 |---------------|---------------------------------------------------------------|
 | `/`           | Budget-Stand, Modul-Status, "Jetzt ausführen"-Button, letzte Reports |
-| `/settings`   | Alle Konfigurationswerte per Formular bearbeiten (ersetzt die früheren SSH-Abfragen) |
+| `/settings`   | Allgemeine Konfiguration + die beiden eingebauten Module        |
+| `/modules`    | Eigene Module anlegen/bearbeiten/löschen, ganz ohne Code        |
 | `/reports`    | Alle bisherigen Reports, als Markdown gerendert                |
 
 Änderungen unter `/settings` werden direkt in `config.yaml` geschrieben und
@@ -122,7 +145,10 @@ den zeitgesteuerten Batch-Läufen.
 # Timer-Status
 systemctl list-timers 'research-lxc-*'
 
-# Logs eines Laufs
+# Logs eines Laufs (alle Module -- so heißt der von research-lxc-all.timer getriggerte Service)
+journalctl -u research-lxc@all.service -n 100
+
+# Logs eines einzelnen manuellen Modul-Laufs (Instanzname = Modulname)
 journalctl -u research-lxc@competitor_analysis.service -n 100
 
 # Budget-Stand prüfen

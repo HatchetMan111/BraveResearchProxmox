@@ -21,24 +21,32 @@
   <fieldset>
     <legend>Ollama (extern, selbst gehostet)</legend>
     <label>Base-URL
-      <input type="text" name="ollama_base_url" value="{{ cfg.ollama.base_url }}" placeholder="http://192.168.1.10:11434">
+      <input type="text" id="ollama_base_url" name="ollama_base_url" value="{{ cfg.ollama.base_url }}" placeholder="http://192.168.1.10:11434">
     </label>
-    <label>Modell
-      <input type="text" name="ollama_model" value="{{ cfg.ollama.model }}" placeholder="llama3.1">
-    </label>
+    <div class="model-row">
+      <div>
+        <label>Modell
+          <input type="text" id="ollama_model" name="ollama_model" list="ollama-models-list"
+                 value="{{ cfg.ollama.model }}" placeholder="Modelle laden oder Namen eintippen">
+          <datalist id="ollama-models-list"></datalist>
+        </label>
+      </div>
+      <button type="button" class="btn" id="load-models-btn">Modelle laden</button>
+    </div>
+    <p class="model-status" id="model-status"></p>
   </fieldset>
 
   <fieldset>
     <legend>Modul: Konkurrenzanalyse</legend>
     <label class="checkbox-label">
       <input type="checkbox" name="competitor_enabled" {% if cfg.modules.competitor_analysis.enabled %}checked{% endif %}>
-      Aktiviert (wöchentlicher Lauf, Mo 06:00)
+      Aktiviert (läuft beim täglichen Modul-Lauf mit)
     </label>
     <label>Branche
-      <input type="text" name="competitor_branche" value="{{ cfg.modules.competitor_analysis.branche }}" placeholder="z.B. Metzgerei">
+      <input type="text" name="competitor_branche" value="{{ cfg.modules.competitor_analysis.branche }}" placeholder="z.B. Ihre Branche">
     </label>
     <label>Region
-      <input type="text" name="competitor_region" value="{{ cfg.modules.competitor_analysis.region }}" placeholder="z.B. Main-Tauber-Kreis">
+      <input type="text" name="competitor_region" value="{{ cfg.modules.competitor_analysis.region }}" placeholder="z.B. Ihre Region">
     </label>
   </fieldset>
 
@@ -46,13 +54,13 @@
     <legend>Modul: News-Digest</legend>
     <label class="checkbox-label">
       <input type="checkbox" name="news_enabled" {% if cfg.modules.news_digest.enabled %}checked{% endif %}>
-      Aktiviert (täglicher Lauf, 07:00)
+      Aktiviert (läuft beim täglichen Modul-Lauf mit)
     </label>
     <label>Region
-      <input type="text" name="news_region" value="{{ cfg.modules.news_digest.region }}" placeholder="z.B. Main-Tauber-Kreis">
+      <input type="text" name="news_region" value="{{ cfg.modules.news_digest.region }}" placeholder="z.B. Ihre Region">
     </label>
     <label>Themen (kommagetrennt)
-      <input type="text" name="news_themen" value="{{ cfg.modules.news_digest.themen | join(', ') }}" placeholder="Energie, SmartHome, Förderprogramme">
+      <input type="text" name="news_themen" value="{{ cfg.modules.news_digest.themen | join(', ') }}" placeholder="z.B. Energie, Förderprogramme">
     </label>
     <label>Stil
       <input type="text" name="news_stil" value="{{ cfg.modules.news_digest.stil }}" placeholder="sachlich, lokal, freundlich">
@@ -87,5 +95,48 @@
 
   <button type="submit" class="btn btn-primary">Speichern</button>
 </form>
+
+<p class="muted">Weiteres Recherche-Thema? Eigene Module lassen sich unter <a href="/modules">Module</a> anlegen, ganz ohne Code.</p>
+
+<script>
+(function () {
+  const baseUrlInput = document.getElementById("ollama_base_url");
+  const modelInput = document.getElementById("ollama_model");
+  const datalist = document.getElementById("ollama-models-list");
+  const statusEl = document.getElementById("model-status");
+  const loadBtn = document.getElementById("load-models-btn");
+
+  async function loadModels() {
+    const baseUrl = baseUrlInput.value.trim();
+    if (!baseUrl) {
+      statusEl.textContent = "Erst eine Ollama Base-URL eintragen.";
+      return;
+    }
+    statusEl.textContent = "Lade Modelle …";
+    try {
+      const resp = await fetch("/api/ollama-models?base_url=" + encodeURIComponent(baseUrl));
+      const data = await resp.json();
+      datalist.innerHTML = "";
+      if (data.models && data.models.length) {
+        data.models.forEach(function (name) {
+          const opt = document.createElement("option");
+          opt.value = name;
+          datalist.appendChild(opt);
+        });
+        statusEl.textContent = data.models.length + " installierte(s) Modell(e) gefunden -- aus der Liste wählen oder eigenen Namen eintippen.";
+      } else {
+        statusEl.textContent = data.error || "Keine Modelle gefunden -- Namen manuell eintippen.";
+      }
+    } catch (err) {
+      statusEl.textContent = "Ollama nicht erreichbar -- Modellnamen manuell eintippen.";
+    }
+  }
+
+  loadBtn.addEventListener("click", loadModels);
+  if (baseUrlInput.value.trim()) {
+    loadModels();
+  }
+})();
+</script>
 
 {% endblock %}

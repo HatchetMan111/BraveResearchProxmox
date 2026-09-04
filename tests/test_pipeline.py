@@ -45,7 +45,7 @@ class FakeBudgetTracker:
         return self._status
 
 
-OPTIONS = {"branche": "SmartHome Integration", "region": "Main-Tauber-Kreis"}
+OPTIONS = {"branche": "Testbranche", "region": "Musterregion"}
 
 
 def test_full_run_produces_report_content():

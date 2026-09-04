@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}{% if is_edit %}Modul bearbeiten{% else %}Neues Modul{% endif %} – Recherche-LXC{% endblock %}
+{% block content %}
+
+<p><a href="/modules">← Alle Module</a></p>
+<h1>{% if is_edit %}Modul "{{ module.name }}" bearbeiten{% else %}Neues Modul anlegen{% endif %}</h1>
+
+{% if error %}<div class="banner banner-error">{{ error }}</div>{% endif %}
+
+<form method="post" action="{% if is_edit %}/modules/{{ module.name }}/edit{% else %}/modules/new{% endif %}" class="settings-form">
+  <fieldset>
+    <legend>Grunddaten</legend>
+
+    <label>Name
+      <input type="text" name="name" value="{{ module.name if module else '' }}"
+             placeholder="z.B. Vereinsnachrichten" {% if is_edit %}readonly{% endif %} required>
+      {% if is_edit %}<span class="hint">Der Name kann nachträglich nicht mehr geändert werden.</span>{% endif %}
+    </label>
+
+    <label class="checkbox-label">
+      <input type="checkbox" name="enabled" {% if not module or module.get("enabled", True) %}checked{% endif %}>
+      Aktiviert (läuft beim täglichen "Alle Module ausführen"-Lauf mit)
+    </label>
+
+    <label>Suchtyp
+      <select name="search_type">
+        <option value="web" {% if not module or module.get("search_type", "web") == "web" %}selected{% endif %}>Websuche</option>
+        <option value="news" {% if module and module.get("search_type") == "news" %}selected{% endif %}>News-Suche</option>
+      </select>
+    </label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Suchanfragen</legend>
+    <label>Eine Suchanfrage pro Zeile
+      <textarea name="queries" rows="5" placeholder="z.B.&#10;Musterverein Region XY&#10;Vereinsheim Neuigkeiten Region XY">{% if module %}{{ module.get("queries", []) | join("\n") }}{% endif %}</textarea>
+    </label>
+    <p class="hint">Bewusst wenige, breite Suchanfragen -- die Feinarbeit übernimmt Ollama beim Zusammenfassen.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Ollama-Anweisung (System-Prompt)</legend>
+    <label>Wie soll Ollama die Ergebnisse aufbereiten?
+      <textarea name="system_prompt" rows="4" placeholder="Leer lassen für eine neutrale Standard-Zusammenfassung.">{% if module %}{{ module.get("system_prompt", "") }}{% endif %}</textarea>
+    </label>
+  </fieldset>
+
+  <button type="submit" class="btn btn-primary">{% if is_edit %}Speichern{% else %}Modul anlegen{% endif %}</button>
+</form>
+
+{% endblock %}

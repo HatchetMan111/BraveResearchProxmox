@@ -17,6 +17,7 @@ from .budget_tracker import BudgetExceededError, BudgetStatus, BudgetTracker
 from .cache import ResponseCache
 from .config import AppConfig
 from .modules import MODULES
+from .modules.dynamic import DynamicModule
 from .ollama_client import OllamaClient
 
 logger = logging.getLogger(__name__)
@@ -34,23 +35,44 @@ class RunResult:
     budget_exhausted: bool = False
 
 
-def run_module(module_name: str, config: AppConfig) -> RunResult:
-    if module_name not in MODULES:
-        raise ValueError(
-            f"Unbekanntes Modul '{module_name}'. Verfügbar: {', '.join(MODULES)}"
-        )
-    module_cfg = config.modules.get(module_name)
-    if module_cfg is None or not module_cfg.enabled:
-        raise ValueError(f"Modul '{module_name}' ist in der Config nicht aktiviert.")
+def list_available_modules(config: AppConfig) -> list[str]:
+    """Namen aller aktivierten Module (eingebaut + eigene), z.B. für Fehlermeldungen
+    und für '--module all'."""
+    names = [name for name, cfg in config.modules.items() if cfg.enabled]
+    names += [cm.name for cm in config.custom_modules if cm.enabled]
+    return names
 
-    module = MODULES[module_name]
+
+def _resolve_module(module_name: str, config: AppConfig):
+    """Gibt (Modul-Objekt, Optionen) zurück -- entweder ein eingebautes Modul
+    mit seinen konfigurierten Optionen, oder ein zur Laufzeit aus
+    custom_modules gebautes DynamicModule. Wirft ValueError bei unbekanntem
+    oder deaktiviertem Modul."""
+    if module_name in MODULES:
+        module_cfg = config.modules.get(module_name)
+        if module_cfg is None or not module_cfg.enabled:
+            raise ValueError(f"Modul '{module_name}' ist in der Config nicht aktiviert.")
+        return MODULES[module_name], module_cfg.options
+
+    for cm in config.custom_modules:
+        if cm.name == module_name:
+            if not cm.enabled:
+                raise ValueError(f"Modul '{module_name}' ist in der Config nicht aktiviert.")
+            return DynamicModule(cm), {}
+
+    available = list(MODULES) + [cm.name for cm in config.custom_modules]
+    raise ValueError(f"Unbekanntes Modul '{module_name}'. Verfügbar: {', '.join(available)}")
+
+
+def run_module(module_name: str, config: AppConfig) -> RunResult:
+    module, options = _resolve_module(module_name, config)
 
     budget_tracker = BudgetTracker(config.budget.db_path, config.brave.max_requests_per_month)
     cache = ResponseCache(config.cache.db_path, config.cache.ttl_hours)
     brave = BraveClient(config.brave.api_key, config.brave.base_url, budget_tracker, cache)
     ollama = OllamaClient(config.ollama.base_url, config.ollama.model, config.ollama.timeout_seconds)
 
-    return _run(module, module_cfg.options, brave, ollama, budget_tracker)
+    return _run(module, options, brave, ollama, budget_tracker)
 
 
 def _run(module, options, brave: BraveClient, ollama: OllamaClient, budget_tracker: BudgetTracker) -> RunResult:

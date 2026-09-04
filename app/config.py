@@ -53,17 +53,28 @@ class SmtpConfig:
 @dataclass
 class OutputConfig:
     reports_dir: str = "reports"
-    email_to: str = "info@lichtvalleyapps.de"
+    email_to: str = ""
     email_from: str = ""
     smtp: SmtpConfig = field(default_factory=SmtpConfig)
 
 
 @dataclass
 class ModuleConfig:
-    """Freie Konfiguration pro Modul (Branche, Region, Stil, Themen, ...)."""
+    """Freie Konfiguration pro eingebautem Modul (Branche, Region, Stil, Themen, ...)."""
 
     enabled: bool = True
     options: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class CustomModuleConfig:
+    """Über das Dashboard frei angelegtes Modul, ohne Python-Code."""
+
+    name: str
+    enabled: bool = True
+    search_type: str = "web"  # "web" oder "news"
+    queries: list[str] = field(default_factory=list)
+    system_prompt: str = ""
 
 
 @dataclass
@@ -74,6 +85,7 @@ class AppConfig:
     budget: BudgetConfig
     output: OutputConfig
     modules: dict[str, ModuleConfig]
+    custom_modules: list[CustomModuleConfig]
     base_dir: Path
 
 
@@ -126,6 +138,19 @@ def load_config(path: str | Path) -> AppConfig:
         for name, cfg in modules_raw.items()
     }
 
+    custom_modules_raw = raw.get("custom_modules", []) or []
+    custom_modules = [
+        CustomModuleConfig(
+            name=cm["name"],
+            enabled=cm.get("enabled", True),
+            search_type=cm.get("search_type", "web"),
+            queries=list(cm.get("queries", [])),
+            system_prompt=cm.get("system_prompt", ""),
+        )
+        for cm in custom_modules_raw
+        if cm.get("name")
+    ]
+
     # Relative Pfade werden relativ zur Config-Datei aufgelöst, damit der
     # Installer die App unabhängig vom Arbeitsverzeichnis starten kann.
     cache.db_path = str(_resolve(base_dir, cache.db_path))
@@ -139,6 +164,7 @@ def load_config(path: str | Path) -> AppConfig:
         budget=budget,
         output=output,
         modules=modules,
+        custom_modules=custom_modules,
         base_dir=base_dir,
     )
 
