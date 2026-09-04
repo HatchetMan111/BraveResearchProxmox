@@ -277,17 +277,37 @@ ensure_template() {
 
 wait_for_network() {
   local ctid="$1" tries=0
-  msg_info "Warte auf Netzwerk im Container (max. 120 s)..."
-  while [[ $tries -lt 60 ]]; do
-    if pct exec "$ctid" -- ping -W2 -c1 1.1.1.1 >/dev/null 2>&1; then
-      msg_ok "Container hat Netz"
+  local max_tries="${RESEARCH_WAIT_TRIES:-60}"  # 60 x 2 s = max. 120 s
+  msg_info "Warte auf Container-Netzwerk (IP + DNS, max. 120 s)..."
+  while [[ $tries -lt $max_tries ]]; do
+    if container_ready "$ctid"; then
+      local ip=""
+      ip=$(pct exec "$ctid" -- hostname -I 2>/dev/null | awk '{print $1}')
+      msg_ok "Container-Netz bereit ($ip)"
       return 0
     fi
     sleep 2
     tries=$((tries + 1))
   done
-  msg_error "Container hat nach 120 s kein Netz. Danach manuell prüfen und Installer erneut laufen lassen."
+  msg_error "Container-Netz nicht bereit. Diagnose:"
+  pct status "$ctid" 2>&1 || true
+  pct exec "$ctid" -- sh -c 'grep -H . /sys/class/net/*/operstate' 2>&1 || true
+  echo "  container-IP: $(pct exec "$ctid" -- hostname -I 2>/dev/null || echo '?')" >&2
+  pct config "$ctid" 2>/dev/null | grep -E "net0|hostname" >&2 || true
+  msg_error "Prüfen: DHCP im LAN aktiv? Bridge korrekt (--bridge)? Alternativ statische IP setzen: --ip 192.168.178.130/24,gw=192.168.178.1"
   exit 1
+}
+
+# True, wenn der Container läuft, eine IP hat und DNS auflöst.
+# Nutzt bewusst KEIN ping: iputils-ping fehlt in minimalen Templates oft,
+# getent (glibc) und hostname sind dagegen immer vorhanden.
+container_ready() {
+  local ctid="$1" ip=""
+  pct status "$ctid" 2>/dev/null | grep -q "status: running" || return 1
+  ip=$(pct exec "$ctid" -- hostname -I 2>/dev/null | awk '{print $1}')
+  [[ -n "$ip" ]] || return 1
+  pct exec "$ctid" -- getent hosts github.com >/dev/null 2>&1 || return 1
+  return 0
 }
 
 run_inner_in_container() {
