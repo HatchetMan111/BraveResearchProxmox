@@ -10,7 +10,7 @@
   <ul class="report-list">
     {% for name, mod_cfg in builtin_modules.items() %}
       <li>
-        <span>{{ name }}</span>
+        <span title="{{ name }}">{{ titles.get(name, name) }}</span>
         <span class="muted">{% if mod_cfg.get("enabled", True) %}aktiv{% else %}deaktiviert{% endif %} · Zeitplan: {{ schedules.get(name, {}).get("human", "–") }}</span>
       </li>
     {% endfor %}
@@ -28,7 +28,7 @@
       {% for cm in custom_modules %}
         <li>
           <div>
-            <strong>{{ cm.name }}</strong>
+            <strong title="{{ cm.name }}">{{ titles.get(cm.name, cm.name) }}</strong>
             <span class="muted">
               · {{ cm.get("search_type", "web") }}
               · {{ cm.get("queries", []) | length }} Suchanfrage(n)

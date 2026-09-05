@@ -43,6 +43,68 @@ CONFIG_PATH = Path(os.environ.get("RESEARCH_LXC_CONFIG", "config.yaml")).resolve
 # eingebauten Module sowie "all" (reserviert für --module all).
 RESERVED_MODULE_NAMES = set(MODULES) | {"all"}
 
+# Anzeigenamen für die UI (statt Technik-Kürzel wie "competitor_analysis").
+MODULE_TITLES = {
+    "competitor_analysis": "Konkurrenzanalyse",
+    "news_digest": "News-Digest",
+}
+
+
+def pretty_module_name(name: str) -> str:
+    """Lesbarer Modulname: bekannte Titel, sonst 'mein_modul' -> 'Mein Modul'."""
+    if name in MODULE_TITLES:
+        return MODULE_TITLES[name]
+    return name.replace("_", " ").replace("-", " ").strip().title() or name
+
+
+_REPORT_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})_(\d{2})(\d{2})_(.+)$")
+
+
+def pretty_report(meta: dict[str, Any]) -> dict[str, Any]:
+    """Reichert einen Report-Eintrag {name, mtime, ...} um lesbare Felder an:
+    title ('Konkurrenzanalyse'), date_str ('04.09.2026 06:00'), rel ('vor 3 Stunden')."""
+    name = meta.get("name", "")
+    stem = name[:-3] if name.endswith(".md") else name
+    match = _REPORT_RE.match(stem)
+    if match:
+        date_part, hh, mm, module = match.groups()
+        try:
+            dt = datetime.strptime(f"{date_part} {hh}:{mm}", "%Y-%m-%d %H:%M")
+            date_str = dt.strftime("%d.%m.%Y %H:%M")
+        except ValueError:
+            date_str = ""
+            module = stem
+        title = pretty_module_name(module)
+    else:
+        title = pretty_module_name(stem)
+        date_str = ""
+    return {**meta, "title": title, "date_str": date_str, "rel": human_rel(meta.get("mtime"))}
+
+
+def human_rel(moment: datetime | None, now: datetime | None = None) -> str:
+    """Relative Zeitangabe ('vor 3 Stunden', 'gestern') für Report-Listen."""
+    if not isinstance(moment, datetime):
+        return ""
+    now = now or datetime.now()
+    try:
+        delta = now - moment.replace(tzinfo=None)
+    except (TypeError, ValueError):
+        return ""
+    secs = max(0, int(delta.total_seconds()))
+    if secs < 60:
+        return "gerade eben"
+    if secs < 3600:
+        minutes = secs // 60
+        return f"vor {minutes} Minute" if minutes == 1 else f"vor {minutes} Minuten"
+    if secs < 86400:
+        hours = secs // 3600
+        return f"vor {hours} Stunde" if hours == 1 else f"vor {hours} Stunden"
+    if secs < 2 * 86400:
+        return "gestern"
+    if secs < 7 * 86400:
+        return f"vor {secs // 86400} Tagen"
+    return moment.strftime("%d.%m.%Y")
+
 app = FastAPI(title="Recherche-LXC Dashboard")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -72,7 +134,10 @@ def _budget_snapshot(raw_cfg: dict[str, Any]) -> dict[str, Any] | None:
     try:
         tracker = BudgetTracker(budget_path, max_requests_per_month=max_req)
         status = tracker.status()
-        return {"used": status.used, "limit": status.limit, "remaining": status.remaining, "month": status.month}
+        pct = (status.used / status.limit * 100) if status.limit else 0
+        level = "ok" if pct < 70 else ("warn" if pct < 90 else "danger")
+        return {"used": status.used, "limit": status.limit, "remaining": status.remaining,
+                "month": status.month, "pct": pct, "level": level}
     except Exception:  # Datenbank evtl. noch nicht angelegt -- kein harter Fehler fürs Dashboard
         logger.exception("Konnte Budget-Status nicht lesen")
         return None
@@ -85,7 +150,8 @@ def _list_reports(raw_cfg: dict[str, Any], limit: int | None = None) -> list[dic
     files = sorted(reports_dir.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
     if limit:
         files = files[:limit]
-    return [{"name": f.name, "mtime": datetime.fromtimestamp(f.stat().st_mtime)} for f in files]
+    metas = [{"name": f.name, "mtime": datetime.fromtimestamp(f.stat().st_mtime)} for f in files]
+    return [pretty_report(m) for m in metas]
 
 
 def _valid_module_names(raw_cfg: dict[str, Any]) -> set[str]:
@@ -220,6 +286,9 @@ def dashboard(request: Request):
         "config_missing_api_key": not raw_cfg.get("brave", {}).get("api_key"),
         "schedule": _schedule_info(raw_cfg),
         "schedules": _all_module_schedules(raw_cfg),
+        "titles": {name: pretty_module_name(name)
+                   for name in list(raw_cfg.get("modules", {}))
+                   + [cm.get("name") for cm in raw_cfg.get("custom_modules", []) if cm.get("name")]},
         "timer": _timer_status(),
     }
     return templates.TemplateResponse(request, "dashboard.html", context)
@@ -455,6 +524,9 @@ def modules_list(request: Request):
             "builtin_modules": raw_cfg.get("modules", {}),
             "custom_modules": raw_cfg.get("custom_modules", []),
             "schedules": _all_module_schedules(raw_cfg),
+            "titles": {name: pretty_module_name(name)
+                       for name in list(raw_cfg.get("modules", {}))
+                       + [cm.get("name") for cm in raw_cfg.get("custom_modules", []) if cm.get("name")]},
             "templates": TEMPLATES,
         },
     )
@@ -701,11 +773,15 @@ def report_detail(request: Request, filename: str):
         return error
 
     content_html = md_lib.markdown(path.read_text(encoding="utf-8"))
+    sidecar = output.load_sources_sidecar(_reports_dir(raw_cfg), filename) or {}
+    pretty = pretty_report({"name": filename, "mtime": datetime.fromtimestamp(path.stat().st_mtime)})
     return templates.TemplateResponse(
         request, "report.html", {"filename": filename, "content_html": content_html,
+                                 "pretty": pretty,
+                                 "query_count": len(sidecar.get("queries_run", []) or []),
+                                 "has_sidecar": bool(sidecar),
                                  "question": "", "answer_html": None, "ask_error": None,
-                                 "source_count": len(
-                                     (output.load_sources_sidecar(_reports_dir(raw_cfg), filename) or {}).get("sources", []) or [])}
+                                 "source_count": len(sidecar.get("sources", []) or [])}
     )
 
 
@@ -798,13 +874,17 @@ async def report_ask(request: Request, filename: str):
     content_html = md_lib.markdown(md_text)
 
     def show(answer_html=None, ask_error=None):
-        sidecar = output.load_sources_sidecar(_reports_dir(raw_cfg), filename)
+        sidecar = output.load_sources_sidecar(_reports_dir(raw_cfg), filename) or {}
+        pretty = pretty_report({"name": filename, "mtime": datetime.fromtimestamp(path.stat().st_mtime)})
         return templates.TemplateResponse(
             request, "report.html",
             {"filename": filename, "content_html": content_html,
+             "pretty": pretty,
+             "query_count": len(sidecar.get("queries_run", []) or []),
+             "has_sidecar": bool(sidecar),
              "question": question, "answer_html": answer_html,
              "ask_error": ask_error,
-             "source_count": len((sidecar or {}).get("sources", []) or [])},
+             "source_count": len(sidecar.get("sources", []) or [])},
         )
 
     if not question:

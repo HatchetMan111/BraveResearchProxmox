@@ -13,9 +13,14 @@
   <h2>Budget diesen Monat</h2>
   {% if budget %}
     <div class="budget-bar">
-      <div class="budget-bar-fill" style="width: {{ (budget.used / budget.limit * 100) if budget.limit else 0 }}%"></div>
+      <div class="budget-bar-fill level-{{ budget.level }}" style="width: {{ budget.pct }}%"></div>
     </div>
-    <p>{{ budget.used }} / {{ budget.limit }} Requests verbraucht &middot; {{ budget.remaining }} verbleibend &middot; Monat {{ budget.month }}</p>
+    <p><strong>{{ budget.used }} / {{ budget.limit }}</strong> Requests verbraucht &middot; <strong>{{ budget.remaining }}</strong> verbleibend &middot; Monat {{ budget.month }}</p>
+    {% if budget.level == "danger" %}
+      <p class="status status-error">Budget fast aufgebraucht — weitere Läufe werden unvollständig oder abgewiesen.</p>
+    {% elif budget.level == "warn" %}
+      <p class="muted">Budget neigt sich dem Ende — sparsame Queries einplanen.</p>
+    {% endif %}
   {% else %}
     <p class="muted">Noch keine Brave-Anfragen in diesem Monat gestellt.</p>
   {% endif %}
@@ -33,7 +38,7 @@
       {% set status = run_status.get(name, {"status": "idle"}) %}
       <div class="module-card">
         <div class="module-head">
-          <strong>{{ name }}</strong>
+          <strong title="{{ name }}">{{ titles.get(name, name) }}</strong>
           {% if not mod_cfg.get("enabled", True) %}<span class="badge badge-off">deaktiviert</span>{% endif %}
         </div>
         {% if name == "competitor_analysis" %}
@@ -45,16 +50,16 @@
         {% if s %}<p class="muted">Zeitplan: {{ s.human }}</p>{% endif %}
 
         {% if status.status == "running" %}
-          <p class="status status-running">läuft{% if status.started_str %} seit {{ status.started_str }}{% endif %}{% if status.elapsed_str %} (seit {{ status.elapsed_str }}){% endif %} …</p>
+          <p class="status status-running"><span class="dot dot-run"></span>läuft{% if status.started_str %} seit {{ status.started_str }}{% endif %}{% if status.elapsed_str %} (seit {{ status.elapsed_str }}){% endif %} …</p>
           <p class="muted">Bitte warten — die Seite lädt neu, sobald der Lauf fertig ist.</p>
         {% elif status.status == "done" %}
           <p class="status status-done">
-            ✔ fertig{% if status.finished_str %} am {{ status.finished_str }}{% endif %}{% if status.duration_str %} (Dauer: {{ status.duration_str }}){% endif %}{% if status.report_file %} –
+            <span class="dot dot-done"></span>✔ fertig{% if status.finished_str %} am {{ status.finished_str }}{% endif %}{% if status.duration_str %} (Dauer: {{ status.duration_str }}){% endif %}{% if status.report_file %} –
             <a href="/reports/{{ status.report_file }}">Report ansehen</a>{% endif %}
             {% if status.budget_exhausted %}<br><span class="muted">⚠️ unvollständig (Budget erschöpft)</span>{% endif %}
           </p>
         {% elif status.status == "error" %}
-          <p class="status status-error">✘ Fehler{% if status.finished_str %} ({{ status.finished_str }}){% endif %}: {{ status.error or "unbekannt" }}</p>
+          <p class="status status-error"><span class="dot dot-error"></span>✘ Fehler{% if status.finished_str %} ({{ status.finished_str }}){% endif %}: {{ status.error or "unbekannt" }}</p>
         {% endif %}
 
         <form method="post" action="/run/{{ name }}">
@@ -69,7 +74,7 @@
       {% set status = run_status.get(cm.name, {"status": "idle"}) %}
       <div class="module-card">
         <div class="module-head">
-          <strong>{{ cm.name }}</strong>
+          <strong title="{{ cm.name }}">{{ titles.get(cm.name, cm.name) }}</strong>
           <span class="badge">eigenes Modul</span>
           {% if not cm.get("enabled", True) %}<span class="badge badge-off">deaktiviert</span>{% endif %}
         </div>
@@ -78,16 +83,16 @@
         {% if s %}<p class="muted">Zeitplan: {{ s.human }}</p>{% endif %}
 
         {% if status.status == "running" %}
-          <p class="status status-running">läuft{% if status.started_str %} seit {{ status.started_str }}{% endif %}{% if status.elapsed_str %} (seit {{ status.elapsed_str }}){% endif %} …</p>
+          <p class="status status-running"><span class="dot dot-run"></span>läuft{% if status.started_str %} seit {{ status.started_str }}{% endif %}{% if status.elapsed_str %} (seit {{ status.elapsed_str }}){% endif %} …</p>
           <p class="muted">Bitte warten — die Seite lädt neu, sobald der Lauf fertig ist.</p>
         {% elif status.status == "done" %}
           <p class="status status-done">
-            ✔ fertig{% if status.finished_str %} am {{ status.finished_str }}{% endif %}{% if status.duration_str %} (Dauer: {{ status.duration_str }}){% endif %}{% if status.report_file %} –
+            <span class="dot dot-done"></span>✔ fertig{% if status.finished_str %} am {{ status.finished_str }}{% endif %}{% if status.duration_str %} (Dauer: {{ status.duration_str }}){% endif %}{% if status.report_file %} –
             <a href="/reports/{{ status.report_file }}">Report ansehen</a>{% endif %}
             {% if status.budget_exhausted %}<br><span class="muted">⚠️ unvollständig (Budget erschöpft)</span>{% endif %}
           </p>
         {% elif status.status == "error" %}
-          <p class="status status-error">✘ Fehler{% if status.finished_str %} ({{ status.finished_str }}){% endif %}: {{ status.error or "unbekannt" }}</p>
+          <p class="status status-error"><span class="dot dot-error"></span>✘ Fehler{% if status.finished_str %} ({{ status.finished_str }}){% endif %}: {{ status.error or "unbekannt" }}</p>
         {% endif %}
 
         <form method="post" action="/run/{{ cm.name }}">
@@ -109,7 +114,7 @@
   <h2>Zeitplan (automatische Läufe)</h2>
   <ul class="report-list">
     {% for mod_name, s in schedules.items() %}
-      <li><span>{{ mod_name }}</span> <span class="muted">{{ s.human }}</span></li>
+      <li><span title="{{ mod_name }}">{{ titles.get(mod_name, mod_name) }}</span> <span class="muted">{{ s.human }}</span></li>
     {% endfor %}
   </ul>
   <p class="muted">Anpassen pro Modul unter <a href="/settings">Einstellungen</a> bzw. <a href="/modules">Module</a>. Danach Timer anlegen: Installer erneut laufen lassen oder als root <code>python -m app.schedule_units --apply</code> im App-Ordner.
@@ -128,7 +133,13 @@
   {% if reports %}
     <ul class="report-list">
       {% for r in reports %}
-        <li><a href="/reports/{{ r.name }}">{{ r.name }}</a> <span class="muted">{{ r.mtime.strftime("%d.%m.%Y %H:%M") }}</span></li>
+        <li>
+          <div>
+            <a href="/reports/{{ r.name }}"><strong>{{ r.title }}</strong></a>
+            <br><span class="muted">{{ r.date_str }}{% if r.rel %} · {{ r.rel }}{% endif %}</span>
+          </div>
+          <span class="muted"><a href="/reports/{{ r.name }}/pdf">PDF</a></span>
+        </li>
       {% endfor %}
     </ul>
     <p><a href="/reports">Alle Reports →</a></p>

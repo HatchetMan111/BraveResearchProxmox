@@ -22,10 +22,11 @@
       {% for r in results %}
         <li>
           <div>
-            <a href="/reports/{{ r.name }}">{{ r.name }}</a>
+            <a href="/reports/{{ r.name }}"><strong>{{ r.title }}</strong></a>
+            <span class="muted"> · {{ r.name }}</span>
             <br><span class="muted">{{ r.excerpt }}</span>
           </div>
-          <span class="muted">{{ r.mtime.strftime("%d.%m.%Y %H:%M") }} · <a href="/reports/{{ r.name }}/pdf">PDF</a></span>
+          <span class="muted">{{ r.date_str or r.mtime.strftime("%d.%m.%Y %H:%M") }}{% if r.rel %} · {{ r.rel }}{% endif %} · <a href="/reports/{{ r.name }}/pdf">PDF</a></span>
         </li>
       {% endfor %}
     </ul>
@@ -35,7 +36,14 @@
 {% elif reports %}
   <ul class="report-list">
     {% for r in reports %}
-      <li><a href="/reports/{{ r.name }}">{{ r.name }}</a> <span class="muted">{{ r.mtime.strftime("%d.%m.%Y %H:%M") }} · <a href="/reports/{{ r.name }}/pdf">PDF</a></span></li>
+      <li>
+        <div>
+          <a href="/reports/{{ r.name }}"><strong>{{ r.title }}</strong></a>
+          <span class="muted"> · {{ r.name }}</span>
+          {% if r.rel %}<br><span class="muted">{{ r.rel }}</span>{% endif %}
+        </div>
+        <span class="muted">{{ r.date_str or r.mtime.strftime("%d.%m.%Y %H:%M") }} · <a href="/reports/{{ r.name }}/pdf">PDF</a></span>
+      </li>
     {% endfor %}
   </ul>
 {% else %}

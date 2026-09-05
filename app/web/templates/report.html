@@ -1,7 +1,13 @@
 {% extends "base.html" %}
-{% block title %}{{ filename }} – Recherche-LXC{% endblock %}
+{% block title %}{{ pretty.title if pretty else filename }} – Recherche-LXC{% endblock %}
 {% block content %}
 <p class="no-print"><a href="/reports">← Alle Reports</a></p>
+<div class="report-meta">
+  <h1 style="margin:0;">{{ pretty.title if pretty else filename }}</h1>
+  <p class="muted" style="margin:4px 0 0;">
+    {{ pretty.date_str if pretty and pretty.date_str }}{% if pretty and pretty.rel %} · {{ pretty.rel }}{% endif %}{% if has_sidecar %} · {{ query_count }} Suchanfragen · {{ source_count }} Quellen{% endif %}
+  </p>
+</div>
 <div class="report-actions no-print">
   <a href="/reports/{{ filename }}/pdf" class="btn">Als PDF laden</a>
   <button type="button" class="btn" onclick="window.print()">Drucken</button>
